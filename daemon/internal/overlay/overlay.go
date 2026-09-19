@@ -28,6 +28,13 @@ func (o *Overlay) AddLower(path ...string) {
 	o.Lower = append(o.Lower, path...)
 }
 
+// SetLower replaces the overlay lowerdir list.
+func (o *Overlay) SetLower(paths []string) {
+	o.Lock()
+	defer o.Unlock()
+	o.Lower = append([]string(nil), paths...)
+}
+
 // Mount mounts an overlay filesystem on the provided overlay dirs
 func (o *Overlay) Mount() error {
 	o.Lock()

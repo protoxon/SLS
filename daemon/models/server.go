@@ -42,12 +42,14 @@ type Copy struct {
 	Target string `yaml:"target" json:"target"`
 }
 
-// Volume holds mounting information for SLS managed volumes
+// Volume is a pulled artifact (cow/ro) or a local dir under the volumes root
+// (source + target; rw allowed only for local dirs outside cas/digests).
 type Volume struct {
-	Name   string     `yaml:"name" json:"name"`
-	Source string     `yaml:"source" json:"source"`
-	Target string     `yaml:"target" json:"target"`
-	Mode   VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Name     string     `yaml:"name" json:"name"`
+	Artifact string     `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+	Source   string     `yaml:"source" json:"source"`
+	Target   string     `yaml:"target" json:"target"`
+	Mode     VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
 }
 
 type VolumeMode string

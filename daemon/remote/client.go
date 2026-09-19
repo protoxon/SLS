@@ -12,6 +12,7 @@ import (
 
 type Client interface {
 	Register(ctx context.Context) error
+	Start()
 	Heartbeat(ctx context.Context)
 	Disconnect(ctx context.Context)
 	StatusUpdate(ctx context.Context, status string, id string) error // Sends a server status update
@@ -52,27 +53,40 @@ func New(base string, opts ...ClientOption) Client {
 		opt(&c)
 	}
 
-	// Attempt to register on startup, but don't block if it fails
-	// Heartbeats will retry registration if needed
+	return &c
+}
+
+// Start registers with Protocube and begins heartbeats. Call this after
+// SetOnConnected so the first successful register can sync servers.
+func (c *client) Start() {
 	go func() {
 		registerCtx, registerCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer registerCancel()
 		if err := c.Register(registerCtx); err != nil {
-			// Registration failed, but heartbeats will handle retrying
 			log.WithError(err).Debug("initial registration attempt failed, will retry on heartbeat")
 		}
 	}()
-
 	c.StartHeartbeats()
-	return &c
 }
 
 // SetOnConnected sets the callback to be executed when the node successfully connects.
-// This can be called after the client is created to avoid circular dependencies.
+// If the node is already connected, the callback runs immediately.
 func (c *client) SetOnConnected(callback func(context.Context)) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	c.onConnected = callback
+	c.mu.Unlock()
+	if callback != nil && connected.Load() {
+		callback(c.ctx)
+	}
+}
+
+func (c *client) notifyConnected(ctx context.Context) {
+	c.mu.RLock()
+	callback := c.onConnected
+	c.mu.RUnlock()
+	if callback != nil {
+		callback(ctx)
+	}
 }
 
 // WithCredentials sets the credentials to use when making request to the remote

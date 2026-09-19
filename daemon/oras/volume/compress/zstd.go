@@ -6,8 +6,6 @@ type ZstdCodec struct{}
 
 func (ZstdCodec) Name() Compression { return CompressionZstd }
 
-func (ZstdCodec) MediaType() string { return MediaTypeZstd }
-
 func (ZstdCodec) NewEncoder() (Encoder, error) {
 	enc, err := zstd.NewWriter(nil,
 		zstd.WithEncoderConcurrency(1),

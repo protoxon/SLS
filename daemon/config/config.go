@@ -122,6 +122,50 @@ func (sc *SystemConfiguration) GetStatesPath() string {
 	return path.Join(sc.RootDirectory, "/states.json")
 }
 
+// UsePlainHTTP reports whether registry (host or host:port) is listed as insecure.
+func (sc SystemConfiguration) UsePlainHTTP(registry string) bool {
+	return MatchInsecureRegistry(registry, sc.InsecureRegistries)
+}
+
+// MatchInsecureRegistry reports whether registry matches an insecure entry.
+// An entry of "localhost:5000" matches that host and port. An entry of
+// "localhost" matches any port on that host.
+func MatchInsecureRegistry(registry string, list []string) bool {
+	registry = strings.ToLower(strings.TrimSpace(registry))
+	if registry == "" {
+		return false
+	}
+	regHost, regPort := splitRegistry(registry)
+	for _, raw := range list {
+		entry := strings.ToLower(strings.TrimSpace(raw))
+		if entry == "" {
+			continue
+		}
+		entryHost, entryPort := splitRegistry(entry)
+		if entryHost != regHost {
+			continue
+		}
+		if entryPort == "" || entryPort == regPort {
+			return true
+		}
+	}
+	return false
+}
+
+func splitRegistry(s string) (host, port string) {
+	if strings.HasPrefix(s, "[") {
+		if i := strings.LastIndex(s, "]:"); i >= 0 {
+			return s[:i+1], s[i+2:]
+		}
+		return s, ""
+	}
+	if strings.Count(s, ":") == 1 {
+		i := strings.LastIndex(s, ":")
+		return s[:i], s[i+1:]
+	}
+	return s, ""
+}
+
 type SystemConfiguration struct {
 	RootDirectory string `yaml:"root_directory" default:"/var/lib/sls"`
 
@@ -130,6 +174,10 @@ type SystemConfiguration struct {
 	// AllowedMounts enumerates host paths that can be exposed to containers as additional
 	// bind mounts. Custom mounts supplied by servers must live within one of these paths.
 	AllowedMounts []string `yaml:"allowed_mounts" default:"[]"`
+
+	// InsecureRegistries is a list of registry hosts (host or host:port) that
+	// should be contacted over HTTP instead of HTTPS when pulling volumes.
+	InsecureRegistries []string `yaml:"insecure_registries" default:"[]"`
 
 	// TmpDirectory specifies where temporary files for daemons installation processes
 	// should be created. This supports environments running docker-in-docker.

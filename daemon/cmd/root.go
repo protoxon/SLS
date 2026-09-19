@@ -72,6 +72,7 @@ func run(cmd *cobra.Command, _ []string) {
 			return
 		}
 	})
+	client.Start()
 
 	// Initialize the sqlite database
 	err := database.Initialize()

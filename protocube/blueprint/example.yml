@@ -48,26 +48,26 @@ server:
 # Declarative server state
 state:
 
-  # Volumes are managed storage units.
-  # All volume sources are resolved relative to the sls
-  # configured volumes directory (e.g. /sls/volumes).
+  # Volumes are managed storage units under the daemon volumes directory
+  # (e.g. /var/lib/sls/volumes). They are never arbitrary host paths.
   #
-  # Volumes cannot escape this directory and are never arbitrary host paths.
+  # Artifact volumes (pulled from a registry) may be cow or ro.
+  # Local volumes require source + target; rw is allowed only for those.
   volumes:
-    # Primary server filesystem
-    - name: "world"
-      source: "worlds/world"     # Resolved to /sls/volumes/worlds/world
-      target: "/world"            # Mount point inside the container
-      mode: cow                  # cow | ro | rw (default: cow)
+    - artifact: "localhost:5000/world:latest"
+      target: "/world"
+      mode: cow
 
-    # Read-only plugins or assets
+    - name: "world"
+      source: "worlds/world"     # /var/lib/sls/volumes/worlds/world
+      target: "/world"
+      mode: cow
+
     - name: "plugins"
       source: "plugins"
       target: "/plugins"
       mode: ro
 
-    # Example persistent data volume
-    # (useful for databases, player data, etc.)
     - name: "data"
       source: "shared/data"
       target: "/data"

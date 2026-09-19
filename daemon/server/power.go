@@ -326,6 +326,11 @@ func (s *Server) onBeforeStart() error {
 		break
 	}
 
+	//
+	if err := s.initVolumes(s.Context()); err != nil {
+		return errors.Wrap(err, "failed to initialize volumes")
+	}
+
 	// Mount the overlay filesystem
 	err := s.Filesystem().Overlay().Mount()
 	if err != nil {

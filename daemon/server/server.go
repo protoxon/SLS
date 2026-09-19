@@ -14,6 +14,7 @@ import (
 	"protoxon.com/sls/daemon/environment"
 	"protoxon.com/sls/daemon/events"
 	"protoxon.com/sls/daemon/models"
+	"protoxon.com/sls/daemon/oras/store"
 	"protoxon.com/sls/daemon/remote"
 	"protoxon.com/sls/daemon/server/filesystem"
 	"protoxon.com/sls/daemon/system"
@@ -52,6 +53,11 @@ type Server struct {
 	// Maintains the configuration for the server. This is the data that gets returned by protocube
 	// such as build settings and container images.
 	cfg Configuration
+
+	// Configured volumes artifacts used by this server
+	volumes           []models.Volume
+	volumeStore       *store.Store
+	volumesConfigured bool
 
 	fs *filesystem.Filesystem
 
@@ -287,21 +293,29 @@ func (s *Server) Delete() error {
 		return err
 	}
 
-	// Once the environment is terminated, remove the server files from the system. This is
-	// done in a separate process since failure is not the end of the world and can be
-	// manually cleaned up after the fact.
-	//
-	// In addition, servers with large amounts of files can take some time to finish deleting,
-	// so we don't want to block the HTTP call while waiting on this.
+	// Close UnixFS then detach-unmount before GC so digest trees are not
+	// collected while they are still lowerdirs. Keep MNT_DETACH; a blocking
+	// umount returns EBUSY while Docker/fds drain.
+	if err := s.unmountVolumesForDelete(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Warn("failed to unmount filesystem during deletion process")
+		return err
+	}
+
+	if err := s.releaseVolumeRefs(); err != nil {
+		log.WithFields(log.Fields{"error": err}).Warn("failed to release volume pins during deletion process")
+	}
+
+	// Overlay scratch and the data directory can be large; do not block the HTTP call.
 	go func() {
 		fs := s.Filesystem()
-		err := fs.Destroy()
-		if err != nil {
+		if fs == nil {
+			return
+		}
+		if err := fs.Destroy(); err != nil {
 			log.WithFields(log.Fields{"error": err}).Warn("failed to remove server files during deletion process")
 		}
 	}()
 
-	// Remove the server from the manager
 	s.Remove()
 	return nil
 }
@@ -363,8 +377,6 @@ func (s *Server) Sync() error {
 	// Update the disk space limits for the server whenever the configuration for
 	// it changes.
 	s.fs.SetDiskLimit(s.DiskSpace())
-
-	s.SyncWithEnvironment()
 
 	return nil
 }

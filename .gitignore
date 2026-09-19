@@ -36,4 +36,8 @@ slimepacks/slimepacks.so
 daemon/daemon*
 daemon/sls
 protocube/protocube*
+cli/sls
+
+cli/data
+cli/out
 
