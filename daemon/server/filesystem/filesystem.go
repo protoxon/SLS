@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"emperror.dev/errors"
@@ -409,102 +408,6 @@ func ChmodUnsafe(mode fs.FileMode, paths ...string) error {
 	return nil
 }
 
-// setOverlayUpperWorkPermissions walks each path once, applying chown+chmod (0o755).
-// It skips syscalls when the stat result already matches the desired owner and mode.
-func setOverlayUpperWorkPermissions(paths ...string) error {
-	cfg := config.Get()
-	if cfg == nil {
-		return nil
-	}
-	uid := cfg.System.User.Uid
-	gid := cfg.System.User.Gid
-	want := fs.FileMode(0o755)
-
-	for _, path := range paths {
-		if path == "" {
-			continue
-		}
-		err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			info, err := d.Info()
-			if err != nil {
-				return err
-			}
-			doChown := true
-			if st, ok := info.Sys().(*syscall.Stat_t); ok {
-				if int(st.Uid) == uid && int(st.Gid) == gid {
-					doChown = false
-				}
-			}
-			if doChown {
-				if err := os.Chown(p, uid, gid); err != nil {
-					return errors.Wrapf(err, "failed to chown %s", p)
-				}
-			}
-			if info.Mode().Perm() != want.Perm() {
-				if err := os.Chmod(p, want); err != nil {
-					return errors.Wrapf(err, "failed to chmod %s", p)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "failed to set overlay upper/work permissions %s", path)
-		}
-	}
-	return nil
-}
-
-// setOverlayLowerPermissions walks each path once, applying chgrp (daemon GID) and
-// OR-ing group rwx into the mode. It skips syscalls when already satisfied.
-func setOverlayLowerPermissions(paths ...string) error {
-	cfg := config.Get()
-	if cfg == nil {
-		return nil
-	}
-	gid := cfg.System.User.Gid
-
-	for _, path := range paths {
-		if path == "" {
-			continue
-		}
-
-		err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			info, err := d.Info()
-			if err != nil {
-				return err
-			}
-			doChgrp := true
-			if st, ok := info.Sys().(*syscall.Stat_t); ok {
-				if int(st.Gid) == gid {
-					doChgrp = false
-				}
-			}
-			if doChgrp {
-				if err := os.Chown(p, -1, gid); err != nil {
-					return errors.Wrapf(err, "failed to chgrp %s", p)
-				}
-			}
-			mode := info.Mode()
-			if mode&0o070 != 0o070 {
-				if err := os.Chmod(p, mode|0o070); err != nil {
-					return errors.Wrapf(err, "failed to chmod %s", p)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrapf(err, "failed to set overlay lower permissions %s", path)
-		}
-	}
-	return nil
-}
-
 func (fs *Filesystem) Chmod(path string, mode ufs.FileMode) error {
 	return fs.unixFS.Chmod(path, mode)
 }
@@ -709,23 +612,25 @@ func (fs *Filesystem) ListDirectory(p string) ([]Stat, error) {
 	return out, nil
 }
 
-// Destroy closes and deletes the entire filesystem including the server and overlay volume
+// Destroy closes and deletes the entire filesystem including the server and overlay volume.
+// The data directory is not removed if the overlay is still mounted.
 func (fs *Filesystem) Destroy() error {
 	p := fs.Path()
 	var errs []error
-	// Close the underlying UnixFS
 	if err := fs.UnixFS().Close(); err != nil {
 		errs = append(errs, errors.Wrap(err, "failed to close filesystem"))
 	}
-	// Destroy overlay
-	if err := fs.Overlay().Destroy(); err != nil {
-		errs = append(errs, errors.WrapWithDetails(err, "failed to destroy overlay", "path", fs.Overlay().Root))
+	if ov := fs.Overlay(); ov != nil {
+		if err := ov.Destroy(); err != nil {
+			errs = append(errs, errors.WrapWithDetails(err, "failed to destroy overlay", "path", ov.Root))
+			if ov.IsMounted() {
+				return errors.Combine(errs...)
+			}
+		}
 	}
-	// Remove the main volume
 	if err := os.RemoveAll(p); err != nil {
 		errs = append(errs, errors.WrapWithDetails(err, "failed to remove server files", "path", p))
 	}
-	// Combine all collected errors
 	if len(errs) > 0 {
 		return errors.Combine(errs...)
 	}

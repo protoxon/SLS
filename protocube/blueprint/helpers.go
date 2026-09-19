@@ -85,10 +85,12 @@ func mergeStates(base, overlay *State) *State {
 
 	if len(overlay.Volumes) > 0 {
 		byName := make(map[string]int, len(out.Volumes))
-		for i, v := range out.Volumes {
-			byName[v.Name] = i
+		for i := range out.Volumes {
+			out.Volumes[i].Normalize()
+			byName[out.Volumes[i].Name] = i
 		}
 		for _, v := range overlay.Volumes {
+			v.Normalize()
 			if i, ok := byName[v.Name]; ok {
 				out.Volumes[i] = v
 			} else {

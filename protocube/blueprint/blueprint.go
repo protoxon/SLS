@@ -57,14 +57,15 @@ type Mount struct {
 	ReadOnly bool `json:"read_only"`
 }
 
-// Volumes are managed storage units.
-// They must exist within the configured volumes directory
-// (e.g. /sls/volumes).
+// Volume is either a pulled OCI artifact or a local directory under the
+// daemon volumes root. Artifact volumes are cow or ro. Local volumes require
+// source and target, rw is allowed only for those local directories.
 type Volume struct {
-	Name   string     `yaml:"name" json:"name"`
-	Source string     `yaml:"source" json:"source"`
-	Target string     `yaml:"target" json:"target"`
-	Mode   VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Name     string     `yaml:"name,omitempty" json:"name,omitempty"`
+	Artifact string     `yaml:"artifact,omitempty" json:"artifact,omitempty"`
+	Source   string     `yaml:"source,omitempty" json:"source,omitempty"`
+	Target   string     `yaml:"target,omitempty" json:"target,omitempty"`
+	Mode     VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
 }
 
 type VolumeMode string

@@ -13,6 +13,8 @@ import (
 	"github.com/apex/log/handlers/cli"
 	color2 "github.com/fatih/color"
 	"github.com/mattn/go-colorable"
+	"protoxon.com/sls/daemon/config"
+	"protoxon.com/sls/daemon/system"
 )
 
 var (
@@ -73,38 +75,11 @@ func (h *Handler) HandleLog(e *log.Entry) error {
 		}
 
 		if err, ok := e.Fields.Get("error").(error); ok {
-			// Attach the stacktrace if it is missing at this point, but don't point
-			// it specifically to this line since that is irrelevant.
-			err = errors.WithStackDepthIf(err, 4)
-			formatted := fmt.Sprintf("\n%s\n%+v\n\n", boldred.Sprintf("Stacktrace:"), err)
-
-			if !strings.Contains(formatted, "runtime.goexit") {
-				_, _ = fmt.Fprint(h.Writer, formatted)
+			debug := config.Get() != nil && config.Get().Debug
+			if !debug && system.IsExpected(err) {
 				break
 			}
-
-			// Inserts a new-line between sections of a stack.
-			// When wrapping errors, you get multiple separate stacks that start with their message,
-			// this allows us to separate them with a new-line and view them more easily.
-			var b strings.Builder
-			var endOfStack bool
-			for _, s := range strings.Split(formatted, "\n") {
-				b.WriteString(s + "\n")
-
-				if s == "runtime.goexit" {
-					endOfStack = true
-					continue
-				}
-
-				if !endOfStack {
-					continue
-				}
-
-				b.WriteString("\n")
-				endOfStack = false
-			}
-
-			_, _ = fmt.Fprint(h.Writer, b.String())
+			h.writeStack(err)
 		}
 
 		// Only one key with the name "error" can be in the map.
@@ -112,4 +87,34 @@ func (h *Handler) HandleLog(e *log.Entry) error {
 	}
 
 	return nil
+}
+
+func (h *Handler) writeStack(err error) {
+	err = errors.WithStackDepthIf(err, 4)
+	formatted := fmt.Sprintf("\n%s\n%+v\n\n", boldred.Sprintf("Stacktrace:"), err)
+
+	if !strings.Contains(formatted, "runtime.goexit") {
+		_, _ = fmt.Fprint(h.Writer, formatted)
+		return
+	}
+
+	var b strings.Builder
+	var endOfStack bool
+	for _, s := range strings.Split(formatted, "\n") {
+		b.WriteString(s + "\n")
+
+		if s == "runtime.goexit" {
+			endOfStack = true
+			continue
+		}
+
+		if !endOfStack {
+			continue
+		}
+
+		b.WriteString("\n")
+		endOfStack = false
+	}
+
+	_, _ = fmt.Fprint(h.Writer, b.String())
 }

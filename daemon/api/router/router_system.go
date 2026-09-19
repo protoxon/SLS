@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
@@ -11,6 +10,7 @@ import (
 	"protoxon.com/sls/daemon/api/router/httperror"
 	"protoxon.com/sls/daemon/api/router/middleware"
 	"protoxon.com/sls/daemon/models"
+	"protoxon.com/sls/daemon/oras/store"
 	"protoxon.com/sls/daemon/server"
 	"protoxon.com/sls/daemon/system"
 )
@@ -24,12 +24,19 @@ func (r *Router) postCreateServer(c *gin.Context) {
 	}
 
 	// create the server
-	s, err := r.ServerManager.InitServer(req)
+	s, err := r.ServerManager.InitServer(c.Request.Context(), req)
 	if err != nil {
 		log.WithError(err).WithField("server_id", req.Id).Error("failed to create server")
-		if errors.Is(err, os.ErrNotExist) {
-			// A not exists error usually means the blueprints server or world paths don't exist
-			httperror.JSON(c, http.StatusConflict, err.Error(), "The specified path to the server or world directory does not exist on this daemon instance.")
+		if errors.Is(err, store.ErrNotFound) {
+			httperror.JSON(c, http.StatusConflict, err.Error(), "volume reference not found")
+			return
+		}
+		if errors.Is(err, store.ErrResolve) {
+			httperror.JSON(c, http.StatusBadGateway, err.Error(), "volume registry unreachable")
+			return
+		}
+		if errors.Is(err, server.ErrServerFolderNotFound) {
+			httperror.JSON(c, http.StatusConflict, err.Error(), "The specified path to the server directory does not exist on this node.")
 			return
 		}
 		if errors.Is(err, server.ErrInvalidServerConfig) {

@@ -15,14 +15,10 @@ state:
   # By default, they are stored at "/var/lib/sls/volumes".
   # They make it easy to add custom folders to your server environment.
 
-  # Volume format:
-  # - name:   A unique name for the volume
-  #   source: Path on the host, relative to the volumes directory (default: /var/lib/sls/volumes)
-  #   target: Mount point inside the container
-  #   mode:   Mount mode: cow, rw, ro
-  #           cow (default) - Copy-on-write; recommended for most use cases. It allows multiple servers to share the same files without conflicts, stores only modified files, and automatically merges directories if multiple volumes share the same target.
-  #           rw            - Read/write bind mount
-  #           ro            - Read-only bind mount
+  # Artifact: artifact + optional target/mode (cow or ro).
+  # Local:    source + target required; source is relative to the volumes
+  #           directory. mode may be cow, ro, or rw. rw is not allowed on
+  #           cas/ or digests/. Host paths still use mounts + allowed_mounts.
 
   # Examples:
 

@@ -2,13 +2,15 @@ package server
 
 import (
 	"emperror.dev/errors"
+	"protoxon.com/sls/daemon/system"
 )
 
 var (
-	ErrIsRunning                = errors.New("server is running")
-	ErrIsPaused                 = errors.New("server is paused")
+	ErrIsRunning = system.ExpectedError(errors.NewPlain("server is running"))
+	ErrIsPaused  = system.ExpectedError(errors.NewPlain("server is paused"))
 	ErrSuspended                = errors.New("server is currently in a suspended state")
-	ErrInvalidServerConfig      = errors.Sentinel("invalid server configuration")
+	ErrInvalidServerConfig          = errors.Sentinel("invalid server configuration")
+	ErrServerFolderNotFound         = errors.Sentinel("server folder not found")
 	ErrInstalledServerArtifactInUse = errors.New("servers are currently using the installed server artifact")
 )
 

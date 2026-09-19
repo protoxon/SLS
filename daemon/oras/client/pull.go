@@ -18,7 +18,7 @@ func Pull(ctx context.Context, reference, dest string) (ocispec.Descriptor, erro
 	// Resolve the reference to the manifest descriptor.
 	descriptor, err := repository.Resolve(ctx, repository.Reference.Reference)
 	if err != nil {
-		return ocispec.Descriptor{}, errors.Wrap(err, "resolve volume")
+		return ocispec.Descriptor{}, errors.Wrap(err, "failed to resolve reference")
 	}
 
 	if err := volume.Unpack(ctx, repository, descriptor, dest); err != nil {

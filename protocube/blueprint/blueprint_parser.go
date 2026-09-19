@@ -116,10 +116,10 @@ func validateIncludes(includes []string) error {
 	return nil
 }
 
-func (v *Volume) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (v *Volume) UnmarshalYAML(unmarshal func(any) error) error {
 	var s string
 	if err := unmarshal(&s); err == nil && strings.TrimSpace(s) != "" {
-		return v.unmarshalShorthand(strings.TrimSpace(s))
+		return fmt.Errorf("invalid volume %q", s)
 	}
 
 	type volumeAlias Volume
@@ -131,41 +131,96 @@ func (v *Volume) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-// unmarshalShorthand parses name:source:target[:mode], e.g.
-// world:worlds/world:/world:cow
-func (v *Volume) unmarshalShorthand(s string) error {
-	parts := strings.Split(s, ":")
-	if len(parts) < 3 {
-		return fmt.Errorf("invalid volume shorthand %q: expected name:source:target[:mode]", s)
+// Normalize fills name from the artifact repository or local source and mode from the cow default.
+func (v *Volume) Normalize() {
+	v.Artifact = strings.TrimSpace(v.Artifact)
+	v.Source = strings.TrimSpace(v.Source)
+	v.Target = strings.TrimSpace(v.Target)
+	v.Name = strings.TrimSpace(v.Name)
+	if v.Name == "" {
+		if v.Artifact != "" {
+			v.Name = artifactName(v.Artifact)
+		} else if v.Source != "" {
+			v.Name = filepath.Base(filepath.ToSlash(filepath.Clean(v.Source)))
+			if v.Name == "." || v.Name == "/" {
+				v.Name = ""
+			}
+		}
 	}
-	if len(parts) > 4 {
-		return fmt.Errorf("invalid volume shorthand %q: too many ':' segments (use mapping form if paths contain ':')", s)
-	}
-	v.Name = parts[0]
-	v.Source = parts[1]
-	v.Target = parts[2]
-	if len(parts) == 4 {
-		v.Mode = VolumeMode(parts[3])
-	} else {
+	if v.Mode == "" {
 		v.Mode = VolumeModeCOW
+	}
+}
+
+// artifactName returns the repository name from an OCI reference.
+// ghcr.io/sls/chunk_runner:latest → chunk_runner
+func artifactName(ref string) string {
+	if i := strings.Index(ref, "@"); i >= 0 {
+		ref = ref[:i]
+	}
+	if i := strings.LastIndex(ref, "/"); i >= 0 {
+		ref = ref[i+1:]
+	}
+	if i := strings.LastIndex(ref, ":"); i >= 0 {
+		ref = ref[:i]
+	}
+	return ref
+}
+
+func (v *Volume) Validate() error {
+	v.Normalize()
+	if v.Artifact != "" && v.Source != "" {
+		return errors.New("volume cannot set both artifact and source")
+	}
+	if v.Artifact == "" && v.Source == "" {
+		return errors.New("volume requires artifact or source")
+	}
+	if v.Name == "" {
+		if v.Artifact != "" {
+			return errors.New("volume.artifact must include a repository name, or set volume.name")
+		}
+		return errors.New("volume.name is required for a local volume")
+	}
+	if v.Artifact != "" {
+		if v.Mode != VolumeModeCOW && v.Mode != VolumeModeRO {
+			return errors.New("volume.mode for an artifact must be cow or ro")
+		}
+		return nil
+	}
+	if v.Target == "" {
+		return errors.New("volume.source and volume.target are required for a local volume")
+	}
+	if err := validateLocalVolumeSource(v.Source); err != nil {
+		return err
+	}
+	if v.Mode != VolumeModeCOW && v.Mode != VolumeModeRO && v.Mode != VolumeModeRW {
+		return errors.New("volume.mode must be one of: cow, ro, rw")
 	}
 	return nil
 }
 
-func (v *Volume) Validate() error {
-	if v.Name == "" {
-		return errors.New("volume.name cannot be empty")
+func validateLocalVolumeSource(source string) error {
+	if filepath.IsAbs(source) {
+		return errors.New("volume.source must be relative to the daemon volumes directory")
 	}
-	if v.Source == "" {
-		return errors.New("missing required field: volume.source for volume " + v.Name)
+	rel := filepath.ToSlash(filepath.Clean(source))
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return errors.New("volume.source is not a valid path under the volumes directory")
 	}
-	if v.Target == "" {
-		return errors.New("missing required field: volume.target for volume " + v.Name)
-	}
-	if v.Mode != "" && v.Mode != VolumeModeCOW && v.Mode != VolumeModeRO && v.Mode != VolumeModeRW {
-		return errors.New("volume.mode must be one of: cow, ro, rw")
+	if isStoreCacheRel(rel) {
+		return errors.New("volume.source cannot be the cas or digests cache")
 	}
 	return nil
+}
+
+func isStoreCacheRel(rel string) bool {
+	rel = strings.Trim(filepath.ToSlash(rel), "/")
+	for _, dir := range []string{"cas", "digests", "by-digest"} {
+		if rel == dir || strings.HasPrefix(rel, dir+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Mount) Validate() error {

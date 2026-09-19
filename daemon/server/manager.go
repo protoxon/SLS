@@ -21,6 +21,7 @@ import (
 	"protoxon.com/sls/daemon/environment/docker"
 	"protoxon.com/sls/daemon/internal/overlay"
 	"protoxon.com/sls/daemon/models"
+	"protoxon.com/sls/daemon/oras/store"
 	"protoxon.com/sls/daemon/remote"
 	"protoxon.com/sls/daemon/server/filesystem"
 	"protoxon.com/sls/daemon/system"
@@ -30,14 +31,30 @@ type Manager struct {
 	mutex   sync.RWMutex
 	client  remote.Client
 	servers map[string]*Server // key = server ID
+	volumes *store.Store
 }
 
 // NewManager returns a new server manager instance.
 func NewManager(client remote.Client) *Manager {
+	root := ""
+	if cfg := config.Get(); cfg != nil {
+		root = cfg.System.Volumes
+	}
+	st := store.New(root)
+	if root != "" {
+		// Safe at boot: GC keeps any digest listed in volumes/.sls/servers/*.json
+		// even when refs.json is missing or empty.
+		_ = st.GC()
+	}
 	return &Manager{
 		client:  client,
 		servers: make(map[string]*Server),
+		volumes: st,
 	}
+}
+
+func (m *Manager) VolumeStore() *store.Store {
+	return m.volumes
 }
 
 // Add a server to the collection
@@ -115,11 +132,15 @@ func (m *Manager) All() []*Server {
 }
 
 // InitServer initializes a server using the provided server configuration data
-func (m *Manager) InitServer(req models.ServerConfiguration) (*Server, error) {
+func (m *Manager) InitServer(ctx context.Context, req models.ServerConfiguration) (*Server, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	s, err := New(m.client)
 	if err != nil {
 		return nil, err
 	}
+	s.volumeStore = m.volumes
 
 	// This will delete the server if saving is false and any of the following steps fail
 	created := false
@@ -158,7 +179,7 @@ func (m *Manager) InitServer(req models.ServerConfiguration) (*Server, error) {
 		if exists, err := overlay.DirExists(serverFolder); err != nil {
 			return nil, errors.Wrapf(err, "failed to check server folder: %s", serverFolder)
 		} else if !exists {
-			return nil, errors.Wrapf(ErrInvalidServerConfig,
+			return nil, errors.Wrapf(ErrServerFolderNotFound,
 				"server folder does not exist: either add an install script to your software configuration or manually create the server folder. path=%s", serverFolder)
 		}
 	}
@@ -188,93 +209,16 @@ func (m *Manager) InitServer(req models.ServerConfiguration) (*Server, error) {
 		s.cfg.EnvVars = envVars
 	}
 
-	// Set volume mounts from the state configuration
-	volumesRoot := filepath.Join(config.Get().System.Volumes)
-	volumeMounts := make([]Mount, 0, len(req.State.Volumes))
-	for _, v := range req.State.Volumes {
-		switch v.Mode {
-		case models.VolumeModeCOW:
-			continue
-		case models.VolumeModeRO, models.VolumeModeRW:
-			// RW/RO mounts
-			resolved := filepath.Join(volumesRoot, filepath.Clean(v.Source))
-			absResolved, err := filepath.Abs(resolved)
-			if err != nil {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': invalid source path: %s", v.Name, v.Source)
-			}
-			if !filesystem.WithinPath(absResolved, volumesRoot) {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': invalid source path: %s source path must be under %s", v.Name, v.Source, volumesRoot)
-			}
-			if exists, err := overlay.DirExists(absResolved); err != nil {
-				return nil, errors.Wrapf(err, "volume '%s': failed to check source path: %s", v.Name, absResolved)
-			} else if !exists {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': source path does not exist: %s", v.Name, absResolved)
-			}
-			target := filepath.Clean(v.Target)
-			if target == "." {
-				target = "/"
-			}
-			// Target must be the path inside the container; the server root in the container is /home/container
-			containerTarget := filepath.Join("/home/container", strings.TrimPrefix(target, "/"))
-			volumeMounts = append(volumeMounts, Mount(environment.Mount{
-				Source:   absResolved,
-				Target:   containerTarget,
-				ReadOnly: v.Mode == models.VolumeModeRO,
-			}))
-		default:
-			return nil, errors.Wrapf(ErrInvalidServerConfig, "invalid volume mode %s for volume %s", v.Mode, v.Name)
-		}
+	s.volumes = append([]models.Volume(nil), req.State.Volumes...)
+	if err := s.validateVolumes(); err != nil {
+		return nil, err
 	}
-	s.cfg.VolumeMounts = volumeMounts
-
-	// Create the server's main overlay
-	serverOverlay := ov.NewOverlay(system.PathId("/"), []string{serverFolder}, volume)
-
-	// Group COW volumes by their target path
-	cowGroups := make(map[string][]models.Volume)
-	for _, v := range req.State.Volumes {
-		if v.Mode == models.VolumeModeCOW {
-			cowGroups[v.Target] = append(cowGroups[v.Target], v)
-		}
+	if err := s.probeVolumes(ctx); err != nil {
+		return nil, err
 	}
 
-	// Create overlays for each target path
-	for target, vols := range cowGroups {
-		if len(vols) == 0 {
-			continue
-		}
-
-		// Combine sources (validate each COW source is under volumesRoot)
-		sources := make([]string, 0, len(vols))
-		for _, v := range vols {
-			resolved := filepath.Join(volumesRoot, filepath.Clean(v.Source))
-			absResolved, err := filepath.Abs(resolved)
-			if err != nil {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': invalid source path: %s", v.Name, v.Source)
-			}
-			if !filesystem.WithinPath(absResolved, volumesRoot) {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': invalid source path: %s source path must be under %s", v.Name, resolved, volumesRoot)
-			}
-			if exists, err := overlay.DirExists(absResolved); err != nil {
-				return nil, errors.Wrapf(err, "volume '%s': failed to check source path: %s", v.Name, absResolved)
-			} else if !exists {
-				return nil, errors.Wrapf(ErrInvalidServerConfig, "volume '%s': source path does not exist: %s", v.Name, absResolved)
-			}
-			sources = append(sources, absResolved)
-		}
-
-		// If the target is root ("/", ".", ""), append to the server overlay's lowerdirs
-		cleanTarget := filepath.Clean(target)
-		if cleanTarget == "/" || cleanTarget == "." || cleanTarget == "" {
-			serverOverlay.AddLower(sources...)
-			continue
-		}
-
-		// create a new overlay
-		name := system.PathId(target)
-		overlayTarget := filepath.Join(volume, strings.TrimPrefix(cleanTarget, "/"))
-		ov.NewOverlay(name, sources, overlayTarget)
-	}
+	// Base overlay only. Artifact pull and volume lowerdirs happen on first start.
+	ov.NewOverlay(system.PathId("/"), []string{serverFolder}, volume)
 
 	// Set files to copy into the server filesystem
 	// These will be copied when the server starts
@@ -379,7 +323,7 @@ func (m *Manager) Sync(ctx context.Context) error {
 	for _, data := range servers {
 		s := data
 		pool.Submit(func() {
-			_, err := m.InitServer(s)
+			_, err := m.InitServer(ctx, s)
 			if err != nil {
 				log.WithField("server", s.Id).WithField("error", err).Error("failed to load server, skipping...")
 				return

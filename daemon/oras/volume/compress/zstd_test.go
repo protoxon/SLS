@@ -17,9 +17,6 @@ func TestCodecRoundTrip(t *testing.T) {
 			if codec.Name() != name {
 				t.Fatalf("Name() = %q, want %q", codec.Name(), name)
 			}
-			if codec.MediaType() == "" {
-				t.Fatal("MediaType() is empty")
-			}
 
 			enc, err := codec.NewEncoder()
 			if err != nil {

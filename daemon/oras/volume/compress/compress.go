@@ -8,15 +8,10 @@ const (
 	CompressionNone Compression = "none"
 	CompressionGzip Compression = "gzip"
 	CompressionZstd Compression = "zstd"
-
-	MediaTypeNone = "application/vnd.sls.volume.chunk.v1.none"
-	MediaTypeGzip = "application/vnd.sls.volume.chunk.v1.gzip"
-	MediaTypeZstd = "application/vnd.sls.volume.chunk.v1.zstd"
 )
 
 type Codec interface {
 	Name() Compression
-	MediaType() string
 	NewEncoder() (Encoder, error)
 	NewDecoder() (Decoder, error)
 }

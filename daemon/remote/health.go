@@ -78,24 +78,23 @@ func (c *client) Register(ctx context.Context) error {
 		return errors.Wrap(err, "failed to set auth token")
 	}
 
-	if !connected.Load() {
-		connected.Store(true)
+	if connected.SwapIf(true) {
 		log.Info("Successfully registered with protocube.")
-		// Call the onConnected callback if it has been registered
-		c.mu.RLock()
-		callback := c.onConnected
-		c.mu.RUnlock()
-		if callback != nil {
-			callback(ctx)
-		}
+		c.notifyConnected(ctx)
 	}
 
 	return nil
 }
 
-// Heartbeat sends a heartbeat request to protocube
-// Logs any errors directly to console
+// Heartbeat sends a heartbeat request to protocube.
+// If the node is not connected it retries registration first.
 func (c *client) Heartbeat(ctx context.Context) {
+	if !connected.Load() {
+		if err := c.Register(ctx); err != nil {
+			log.WithError(err).Error("failed to connect to protocube: register failed")
+		}
+		return
+	}
 	heartbeat := HeartBeat{}
 	_, err := Post[d](c, ctx, "/internal/heartbeat", heartbeat)
 	if err != nil {

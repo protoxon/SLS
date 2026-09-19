@@ -11,8 +11,6 @@ type GzipCodec struct{}
 
 func (GzipCodec) Name() Compression { return CompressionGzip }
 
-func (GzipCodec) MediaType() string { return MediaTypeGzip }
-
 func (GzipCodec) NewEncoder() (Encoder, error) {
 	return &gzipEncoder{w: gzip.NewWriter(io.Discard)}, nil
 }
