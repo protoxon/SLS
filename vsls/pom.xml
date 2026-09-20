@@ -33,7 +33,7 @@
         <maven.gpg.version>3.2.8</maven.gpg.version>
         <maven.release.version>3.3.1</maven.release.version>
         <maven.site.version>3.22.0</maven.site.version>
-        <templating.version>3.1.0</templating.version>
+        <templating.version>3.1.1</templating.version>
     </properties>
 
     <!-- Repositories -->
