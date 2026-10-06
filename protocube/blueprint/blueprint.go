@@ -60,10 +60,12 @@ type Mount struct {
 // Volume is either a pulled OCI artifact or a local directory under the
 // daemon volumes root. Artifact volumes are cow or ro. Local volumes require
 // source and target, rw is allowed only for those local directories.
+// Path mounts a directory inside the volume instead of the volume root.
 type Volume struct {
 	Name     string     `yaml:"name,omitempty" json:"name,omitempty"`
 	Artifact string     `yaml:"artifact,omitempty" json:"artifact,omitempty"`
 	Source   string     `yaml:"source,omitempty" json:"source,omitempty"`
+	Path     string     `yaml:"path,omitempty" json:"path,omitempty"`
 	Target   string     `yaml:"target,omitempty" json:"target,omitempty"`
 	Mode     VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
 }

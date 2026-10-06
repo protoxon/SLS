@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:minecart"
+        },
+        "title":
+		{
+            "text": "Thrill Rider",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You rode the Trivia Coaster more than once",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/dead_end",
+    "criteria": {
+        "thrill_rider": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

@@ -1,23 +1,43 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/grokify/coreforge/identity/apikey"
 	"protoxon.com/sls/protocube/auth/scope"
 )
 
-type KeyService struct {
-	*apikey.Service
+type allLister interface {
+	ListAll(ctx context.Context) ([]*apikey.APIKey, error)
 }
 
-// Configures and creates a new api key service
+type KeyService struct {
+	*apikey.Service
+	store apikey.Store
+}
+
+// NewKeyService configures and creates a new API key service.
 func NewKeyService() *KeyService {
+	return NewKeyServiceWithStore(NewCachedStore(CachedKeyTTL))
+}
+
+// NewKeyServiceWithStore builds a key service on the given store.
+func NewKeyServiceWithStore(store apikey.Store) *KeyService {
 	config := apikey.ServiceConfig{
-		Store:         NewCachedStore(CachedKeyTTL),
+		Store:         store,
 		Prefix:        "sls",
-		AllowedScopes: []string{scope.AppAdmin, scope.Node},
+		AllowedScopes: scope.All(),
 	}
-	svc := apikey.NewService(config)
 	return &KeyService{
-		svc,
+		Service: apikey.NewService(config),
+		store:   store,
 	}
+}
+
+// ListAll returns every stored API key.
+func (s *KeyService) ListAll(ctx context.Context) ([]*apikey.APIKey, error) {
+	if lister, ok := s.store.(allLister); ok {
+		return lister.ListAll(ctx)
+	}
+	return ListAll()
 }

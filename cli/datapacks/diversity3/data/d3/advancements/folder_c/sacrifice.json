@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:beef"
+        },
+        "title":
+		{
+            "text": "The Humane Way",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You saved an innocent earthling from alien experimentation",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/sky_limit",
+    "criteria": {
+        "sacrifice": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

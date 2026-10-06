@@ -1,0 +1,8 @@
+{
+   "parent": "d3:folder_b/good_ear",
+    "criteria": {
+        "line_b3_end": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

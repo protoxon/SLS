@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:red_wool"
+        },
+        "title":
+		{
+            "text": "Puzzle Complete",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You proved you're smarter than qmagnet",
+		    "italic": true,
+			"color": "green",
+			"bold": false
+		},
+		
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_a/survival",
+    "criteria": {
+        "complete_red": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

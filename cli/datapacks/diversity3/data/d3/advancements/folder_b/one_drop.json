@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:dropper"
+        },
+        "title":
+		{
+            "text": "Close Call",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "DROPPER BRANCH: Reach the bottom of a Drop with fewer than 3 deaths",
+		    "italic": true,
+			"color": "red",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": false
+    },
+    "parent": "d3:folder_b/root",
+    "criteria": {
+        "one_drop": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/apex/log"
 	"protoxon.com/sls/daemon/api/auth"
 	"protoxon.com/sls/daemon/config"
+	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/system"
 )
 
@@ -96,10 +97,14 @@ func (c *client) Heartbeat(ctx context.Context) {
 		return
 	}
 	heartbeat := HeartBeat{}
-	_, err := Post[d](c, ctx, "/internal/heartbeat", heartbeat)
+	resp, err := Post[models.HeartbeatResponse](c, ctx, "/internal/heartbeat", heartbeat)
 	if err != nil {
 		connected.Store(false)
 		log.WithError(err).Error("failed to connect to protocube: heartbeat failed")
+		return
+	}
+	if err := c.SyncRegistryIfChanged(ctx, resp.RegistryRevision); err != nil {
+		log.WithError(err).Warn("failed to refresh registry credentials")
 	}
 }
 

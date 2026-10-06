@@ -44,10 +44,12 @@ type Copy struct {
 
 // Volume is a pulled artifact (cow/ro) or a local dir under the volumes root
 // (source + target; rw allowed only for local dirs outside cas/digests).
+// Path mounts a directory inside the volume instead of the volume root.
 type Volume struct {
 	Name     string     `yaml:"name" json:"name"`
 	Artifact string     `yaml:"artifact,omitempty" json:"artifact,omitempty"`
 	Source   string     `yaml:"source" json:"source"`
+	Path     string     `yaml:"path,omitempty" json:"path,omitempty"`
 	Target   string     `yaml:"target" json:"target"`
 	Mode     VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
 }

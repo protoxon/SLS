@@ -14,6 +14,7 @@ import (
 	"github.com/grokify/coreforge/identity/apikey"
 	"protoxon.com/sls/protocube/api/router/httperror"
 	"protoxon.com/sls/protocube/auth"
+	"protoxon.com/sls/protocube/auth/scope"
 	"protoxon.com/sls/protocube/blueprint"
 	"protoxon.com/sls/protocube/config"
 	"protoxon.com/sls/protocube/node"
@@ -156,47 +157,104 @@ func NodeExists(manager *node.Manager) gin.HandlerFunc {
 	}
 }
 
-// RequireAuthorization authenticates the request using the verification function.
-func RequireAuthorization(service *auth.KeyService, scope string) gin.HandlerFunc {
+type contextKey string
+
+const localAdminContextKey contextKey = "localAdmin"
+
+var localAdminKey = &apikey.APIKey{
+	Name:   "local",
+	Prefix: "local",
+	Scopes: []string{scope.AppAdmin},
+}
+
+// WithLocalAdmin marks a request as coming from the Unix admin socket.
+func WithLocalAdmin(ctx context.Context) context.Context {
+	return context.WithValue(ctx, localAdminContextKey, true)
+}
+
+// IsLocalAdmin reports whether ctx was accepted on the Unix admin socket.
+func IsLocalAdmin(ctx context.Context) bool {
+	v, _ := ctx.Value(localAdminContextKey).(bool)
+	return v
+}
+
+// IsLocal reports whether the Gin request is a Unix-local admin connection.
+func IsLocal(c *gin.Context) bool {
+	if v, ok := c.Get("localAdmin"); ok {
+		if b, ok := v.(bool); ok && b {
+			return true
+		}
+	}
+	return IsLocalAdmin(c.Request.Context())
+}
+
+// Authenticate accepts a Unix-local connection or a Bearer API key.
+func Authenticate(service *auth.KeyService) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if IsLocalAdmin(c.Request.Context()) {
+			c.Set("localAdmin", true)
+			c.Set("apiKey", localAdminKey)
+			c.Next()
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.Header("WWW-Authenticate", "Bearer")
 			httperror.AbortWithJSON(c, http.StatusUnauthorized, "", "The required authorization header was not present in the request.")
 			return
 		}
-
 		if !strings.HasPrefix(authHeader, "Bearer ") {
 			httperror.AbortWithJSON(c, http.StatusUnauthorized, "", "Invalid authorization header format.")
 			return
 		}
 
-		// Extract the actual token
 		token := strings.TrimPrefix(authHeader, "Bearer ")
-
-		// Verify the key using CoreForge
 		key, err := service.Validate(c.Request.Context(), token)
 		if err != nil {
 			httperror.AbortWithJSON(c, http.StatusUnauthorized, err.Error(), "You are not authorized to access this endpoint.")
 			return
 		}
+		c.Set("apiKey", key)
+		c.Next()
+	}
+}
 
-		// Check the required scope
-		if scope != "" && !key.HasScope(scope) {
+// RequireScope allows the request when the caller has the given user or node scope.
+func RequireScope(need string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := GetAPIKey(c)
+		if key == nil {
+			httperror.AbortWithJSON(c, http.StatusUnauthorized, "", "You are not authorized to access this endpoint.")
+			return
+		}
+		if !scope.Allows(key.Scopes, need) {
 			log.WithFields(log.Fields{
 				"owner_id":   key.OwnerID,
-				"scope":      scope,
+				"scope":      need,
 				"key_prefix": key.Prefix,
 				"endpoint":   c.FullPath(),
 				"method":     c.Request.Method,
-			}).Error("Api key key does not have required scope for this endpoint")
+			}).Error("API key does not have required scope for this endpoint")
 			httperror.AbortWithJSON(c, http.StatusForbidden, "Api key missing required scope for this endpoint", "Insufficient privileges")
 			return
 		}
+		c.Next()
+	}
+}
 
-		// Store the verified key in Gin context
-		c.Set("apiKey", key)
-
+// RequireAnyScope allows the request when the caller has at least one of the scopes.
+func RequireAnyScope(needs ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := GetAPIKey(c)
+		if key == nil {
+			httperror.AbortWithJSON(c, http.StatusUnauthorized, "", "You are not authorized to access this endpoint.")
+			return
+		}
+		if !scope.AllowsAny(key.Scopes, needs...) {
+			httperror.AbortWithJSON(c, http.StatusForbidden, "Api key missing required scope for this endpoint", "Insufficient privileges")
+			return
+		}
 		c.Next()
 	}
 }
@@ -204,6 +262,10 @@ func RequireAuthorization(service *auth.KeyService, scope string) gin.HandlerFun
 // Timeout sets a 30-second timeout on all requests
 func Timeout() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if IsRegistryPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		if c.GetHeader("Accept") == "text/event-stream" {
 			c.Next() // Skip the timeout logic for SSE requests
 			return

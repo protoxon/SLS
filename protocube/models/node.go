@@ -41,6 +41,11 @@ type NodeRegistrationResponse struct {
 	SessionToken string `json:"token"`
 }
 
+// HeartbeatResponse is returned to a node after a successful heartbeat.
+type HeartbeatResponse struct {
+	RegistryRevision string `json:"registry_revision"`
+}
+
 func (r *NodeRegistration) Validate() error {
 	if r.Id == "" {
 		return errors.New("Node ID cannot be blank")

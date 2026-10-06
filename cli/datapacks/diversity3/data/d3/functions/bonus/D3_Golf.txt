@@ -1,0 +1,66 @@
+Build changes:
+- Sign on each hole marker indicating par
+- /execute if score MasterUUID UUID matches 1.. run function d3:bonus/golf in the loop block
+- Replace blocks on top of podium with gold/iron/coal
+
+
+
+Changelog:
+- Added void death (regen was making it take forever)
+- Added sounds for ball going out of bound or hitting water hazard
+- Lowered floor for OoB region in many levels to prioritize water hazards
+- Spectral shulker spawns under each hole if players are on that current course.
+- Fixed the offset coordinates in hole 18
+- Made the end of hole title longer
+- Water doesn't spam the player with messages when not golfing
+- Sand traps give nausea
+- After finishing last hole, player spawnpoint is set to the scoreboards
+- In addition to the "hole complete" sound, there are now golf claps.
+- Armor system reworked, many small tweaks/fixes
+- Players can remove all armor except the chestplate, but I can include other pieces easily if desired.
+- Tutorial area spectral marker appears when a player approaches and vanishes when they all leave
+- Standing on the tutorial area platforms tells the player what they are
+- The shop opens and the players gets the book when all players have armor
+- Added secret green armor and super-secret midnight armor
+- Added signs to return from / go to the current hole
+- Endgame podium now works, updates when all players finish
+- Each hole now has a title
+- Fixed death loop that sometimes happens when players log in outside of the golf branch
+- Tweaked teleport_to_game to reference my functions
+- Set up new NewPlayer detection for golf branch, detects based on inGolfBranch tag
+- Modified the "return to hub" buttons to properly reset the branch before TPing the players
+
+- Fixed bug that was breaking choose_winner
+- Fixed broken death plane (was too thin)
+- Players no longer get balls if they're in the air
+- Fixed the redundant sand trap announcements in the worst way possible
+
+- Added dots to text
+- Added a redundant but helpful UUID check to the start of each hole (should fix redundant UUIDs)
+- Reworked nausea system, fixed a variety of minor bugs
+
+
+
+Issues:
+- Hole 3, 14, 16 spectral mob out of range initially
+
+
+
+TO DO:
+- Figure out what par is for each hole
+	- Recommend having testers/devs play through it and record their second attempt score on each hole, base it off of that
+- Add the ability to give up after a certain number of shots via chat trigger
+- Show the action bar constantly when the player is in that specific hole (add hole #, too)
+
+
+
+
+
+
+Full book command: 
+give @p written_book{pages:["[\"\",{\"text\":\"SCORE:\",\"bold\":true},{\"text\":\"\\n\\n\",\"color\":\"reset\"},{\"text\":\"HOLE 1:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score1\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 2:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score2\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 3:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score3\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 4:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score4\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 5:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score5\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 6:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score6\"}},{\"text\":\" (Par 0)\"}]","[\"\",{\"text\":\"HOLE 7:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score7\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 8:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score8\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 9:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score9\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 10:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score10\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 11:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score11\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 12:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score12\"}},{\"text\":\" (Par 0)\"}]","[\"\",{\"text\":\"HOLE 13:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score13\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 14:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score14\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 15:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score15\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 16:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score16\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 17:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score17\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"HOLE 18:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"Score18\"}},{\"text\":\" (Par 0)\\n\\n\"},{\"text\":\"TOTAL SCORE:\",\"underlined\":true},{\"text\":\" \",\"color\":\"reset\"},{\"score\":{\"name\":\"@s\",\"objective\":\"ScoreTotal\"}}]"],title:"Golf Score",author:""}
+
+
+
+
+

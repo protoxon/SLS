@@ -42,7 +42,7 @@ func New(resources *Resources) *Router {
 	router.Handler = router.Configure()
 	router.HTTPServer = &http.Server{
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       20 * time.Second,
+		ReadTimeout:       0,
 		WriteTimeout:      0 * time.Second,
 		IdleTimeout:       5 * time.Minute,
 		Handler:           router.Handler,

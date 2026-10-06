@@ -1,0 +1,8 @@
+{
+   "parent": "d3:folder_a/boss",
+    "criteria": {
+        "line_a2_end": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

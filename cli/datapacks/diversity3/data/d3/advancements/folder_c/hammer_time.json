@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:clock"
+        },
+        "title":
+		{
+            "text": "Stop!",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "Hammer time!",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/adam_west",
+    "criteria": {
+        "hammer_time": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

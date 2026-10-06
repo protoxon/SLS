@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -250,7 +251,56 @@ func resolveVolumeDir(v models.Volume, volumesRoot string) (string, error) {
 	} else if !exists {
 		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': source path does not exist: %s", name, absResolved)
 	}
-	return absResolved, nil
+	sub, err := cleanVolumePath(v.Path)
+	if err != nil {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': %s", name, err.Error())
+	}
+	if sub == "" {
+		return absResolved, nil
+	}
+	rootReal, err := filepath.EvalSymlinks(absResolved)
+	if err != nil {
+		return "", errors.Wrapf(err, "volume '%s': failed to resolve source path: %s", name, absResolved)
+	}
+	dir := filepath.Join(rootReal, filepath.FromSlash(sub))
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s does not exist", name, sub)
+		}
+		return "", errors.Wrapf(err, "volume '%s': failed to check path %s", name, sub)
+	}
+	if !info.IsDir() {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s is not a directory", name, sub)
+	}
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", errors.Wrapf(err, "volume '%s': failed to resolve path %s", name, sub)
+	}
+	if !filesystem.WithinPath(real, rootReal) {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s escapes the volume", name, sub)
+	}
+	return real, nil
+}
+
+// cleanVolumePath returns a relative directory inside a volume.
+// An empty path mounts the volume root.
+func cleanVolumePath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" || path == "." {
+		return "", nil
+	}
+	if filepath.IsAbs(path) {
+		return "", errors.New("volume.path must be a relative directory inside the volume")
+	}
+	rel := filepath.ToSlash(filepath.Clean(path))
+	if rel == "." {
+		return "", nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return "", errors.New("volume.path must stay inside the volume")
+	}
+	return rel, nil
 }
 
 // EnsureVolumes pulls artifact volumes the first time they are needed and
@@ -397,6 +447,9 @@ func validateVolumeSpec(v models.Volume) error {
 	}
 	if v.Artifact != "" && v.Mode == models.VolumeModeRW {
 		return errors.Wrapf(ErrInvalidServerConfig, "volume '%s': artifact volumes cannot use mode rw", name)
+	}
+	if _, err := cleanVolumePath(v.Path); err != nil {
+		return errors.Wrapf(ErrInvalidServerConfig, "volume '%s': %s", name, err.Error())
 	}
 	if v.Artifact != "" {
 		return nil

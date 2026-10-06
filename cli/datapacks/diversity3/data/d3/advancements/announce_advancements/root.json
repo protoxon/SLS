@@ -1,0 +1,18 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:white_wool"
+        },
+        "title": "Press L to view Diversity 3 Advancements",
+        "description": "",
+        "background": "minecraft:textures/block/white_terracotta.png",
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false
+    },
+    "criteria": {
+        "announce_root": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

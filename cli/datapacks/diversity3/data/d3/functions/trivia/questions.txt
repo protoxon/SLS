@@ -1,0 +1,290 @@
+####################################################################
+# THIS FUNCTION WAS MADE BY QMAGNET
+# MARCH 10 2018
+# GIVE MAP MAKERS THE CREDIT THEY DESERVE
+# YOUTUBERS, TELL YOUR VIEWERS ABOUT OUR CHANNELS
+# YouTube -> https://youtube.com/theqmagnet
+# Twitter -> https://twitter.com/theqmagnet
+####################################################################
+
+General
+------------------------
+1. Minecraft has many foodstuffs. Which would you not find in a standard game?
+-> Apples, Cake, Mushroom Stew, (Popsicles)
+
+2. If you were to venture out to the edge of a Minecraft world, what could you expect to see?
+-> Messed up swiss cheese chunk generation, Transparent striped border that prevents movement, Massive bedrock walls, World continues visually, but cannot access
+
+3. Which direction does the sunflower always face?
+-> North, (East), South, West
+
+4. What colour is the music disc "ward"?
+-> (green), blue, red, orange
+
+5. How many different blocks can silverfish hide in?
+-> 3, 4, (6), 8
+
+6. What specific ingredient creates a burst firework?
+-> Diamond, (Feather), Gold Nugget, Glowstone
+
+7. Minimum amount of bookshelves required for a level 30 enchantment?
+-> 1, 8, (15), 18
+
+8. Noteblocks create different sounds based on what block you place them on. Which block would cause a Noteblock to use the flute sound?
+-> (Clay), Gold, Stone, Wool
+
+9. Which Banner has the design known as a "Fess"?
+-> Middle horizontal line
+
+10. What is the opening line of the End Poem that starts directly after the Minecraft logo during the closing credits?
+-> "I see the player you mean."
+"It reads our thoughts."
+"Once upon a time, there was a player."
+"Wake up."
+
+
+
+Technical
+------------------------
+1. What is the furthest redstone dust can be powered before requiring something like a repeater to continue?
+-> 8 blocks, 12 blocks, (15 blocks), 16 blocks
+
+2. What is not a purpose of an Activator Rail when powered?
+-> (Toggles corner track directions), Ejects the rider, Disables hopper minecarts from item pickup, repeatedly executes command block minecarts
+
+3. What is this basic redstone mechanism commonly known as?
+-> AND Gate, NOT Gate, OR Gate, XOR Gate
+
+4. Which of these blocks will not be pulled alongside slime blocks attached to a piston?
+-> (Glazed Terracotta), Sea Lantern, Stone w/ Silverfish, Wet Sponge
+
+5. Which of these blocks prevents a skeleton from burning in the sunlight when placed over its head?
+-> Carpet, (Cobweb), Daylight Sensor, Hopper
+
+6. What does NBT stand for?
+-> (Named Binary Tag), Native Byte Type, Nested Byte Tag, Network Boolean Type
+
+7. What does the ! symbol indicate in a command?
+-> (Inverts a selector argument), Summons multiple mobs in one command, Resets scoreboard objectives, Runs a command without repeat
+
+8. What syntax is required to summon the Killer Bunny?
+-> Angry:1b, Variant:6, KillerRabbit:true, (RabbitType:99)
+
+9. What sound file type do Resource Packs require for custom sounds to work?
+-> .aiff, .midi, (.ogg), .wav
+
+10. Which command is the "insertion" listener event restricted to?
+-> /clickEvent, /msg, /scoreboard, (/tellraw)
+
+
+
+
+Community
+--------------------
+1. Who is the original creator of the Diversity Minecraft map series?
+-> Jespertheend, ColdFusionGaming, (qmagnet), rsmalec
+
+2. Minecraft Music Video parodies are quite popular on YouTube. Which video parodies Coldplay's "Viva la Vida"?
+-> Fallen Kingdom (CaptainSparklez), Don't Mine at Night (BebopVox), Supernatural Mobs (TheAtlanticCraft), Hunger Games Song (BajanCanadian)
+
+3. Vechs has made quite a name for himself with his very difficult Complete the Monument maps. But what branding does this series of maps go by?
+-> Extreme Survival, Legendary, RageCraft, (Super Hostile)
+
+4. From maps to servers, Hypixel has mastered much of the creative aspect of the game. Which of these in not a Hypixel project?
+-> Creeper Dungeon, (Zombie Siege), Vampire Survival, Wither's Challenge
+
+5. One of the most well known Resource Packs is Faithful 32x32, an higher resolution version of the classic default Resource Pack. Who originally created it?
+-> Hickerydickery, Kahr, Misa, (Vattic)
+
+6. In 2011, Bigre released a new genre of Minecraft gameplay with his massively popular Dropper map. A couple years later, Bigre released a sequel. What is the subtitle of the second Dropper map?
+-> Dimension Jumper, Newton vs Darwin, Sticks & Stones, There is no subtitle
+
+7. Mods are one of the most popular aspects of Minecraft, many of which are made more accessible by installing the program Forge. Who created Forge?
+-> Dan200, Direwolf20, (LexManos), spx614x
+
+8. What would Minecraft be if it weren't for YouTube? Do you know who created the very first Minecraft Let's Play?
+-> (The Carlz0r), Hypnotoad, paulsoaresjr, X
+
+9. There are many extremely handy external programs for building massive Minecraft maps and projects? Who is the original creator of MCEdit?
+-> (Codewarrior0), jaquadro, cynodontA, sk89q, 
+
+10. When it comes to map making pioneers, Noobcrew is one of the most successful. Which popular custom Minecraft map did he create?
+-> Antfarm Survival, The Building Game, (Skyblock), Terra Swoop Force
+
+
+
+
+
+
+
+
+
+On the Debug Info (F3)
+-> Chunks rendered
+
+
+
+
+
+
+
+
+
+
+
+
+In the Woodland Mansion, which pixel art would you not find
+- Cat, Chicken, Illager, 
+
+Which of these can not be obtained with Silk Touch?
+- Cake
+
+Which effect icon shows a sword with blood dripping from it?
+- Strength
+
+What would you see at the very end of a Minecraft world?
+29,999,984 blocks
+
+Which of these cannot be placed into a flower pot?
+- Fern, Dead bush, Allium, 
+
+Hostile Mobs
+Passive Mobs
+Mob Drops
+
+
+Farming
+Which crop has the least amount of growth states?
+- Potato, Beetroot, Melon, Carrot
+
+Trading
+Not a villager name?
+-> Fishmonger
+
+
+Ores
+
+Landmarks
+
+What happens when a skeleton kills a creeper with an arrow
+-> Music disc
+
+
+
+Smallest Mob in game
+
+Block name
+Breeding
+Brewing
+Food
+Beacon
+
+
+
+Technical
+--------------------------------------------------------
+
+E: stands for?
+
+COMMANDS
+
+
+
+What is the cloud height in the game?
+128 - 132
+
+How long is a tick in game?
+
+Which command allows commands to be run from alternate coordinates than the block
+-> /execute, /activate, /scoreboard
+
+To find the 
+- /entitydata
+
+In terms of technical what is a chest?
+- Block entity
+
+Which gamerule randomtickspeed
+
+
+
+
+
+
+REDSTONE
+
+Redstone dust length
+
+
+Which of these will not change the output when place behind a comparator?
+-> Jukebox, Cauldron, Chest
+
+
+
+
+
+
+
+
+
+Daylight sensor
+
+Biome requirement
+
+Snapshot
+Functions
+Comparator
+BUD switch
+Command block type / conditional
+Developer
+Structure Block
+Which mode has no purpose?
+ -> Data, Load, Save Corner
+Liquid flow
+Light Levels
+Advancements
+File types
+Custom sounds
+/playsound
+silver vs light gray
+BlockEntityTag
+testforblock / execute detect
+control scheme
+
+
+
+Community
+--------------------
+Who is the creator of the Diversity map series?
+-> qmagnet
+
+Bigre, the creator of the original Dropper map - Dropper Subtitle For Dropper 2
+-> Dimension Jumper / Newton vs Darwin
+
+Resource Packs
+-> Faithful by Vattic
+
+Marketplace?
+
+the Code
+
+Youtuber
+-> CaptainSparklez - Revenge
+
+minecraft.net
+
+Developer?
+
+Server
+-> hypixel
+
+Realms
+
+MCEdit
+-> Codwarrior
+
+Music Videos
+
+Mods
+
+

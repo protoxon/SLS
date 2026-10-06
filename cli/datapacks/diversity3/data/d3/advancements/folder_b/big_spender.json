@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:gold_block"
+        },
+        "title":
+		{
+            "text": "Big Spender",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "ARENA BRANCH: Purchase every Smash Token",
+		    "italic": true,
+			"color": "red",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": false
+    },
+    "parent": "d3:folder_b/butcher",
+    "criteria": {
+        "big_spender": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

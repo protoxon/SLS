@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:yellow_wool"
+        },
+        "title":
+		{
+            "text": "Arena Complete",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You became the Champion, by killing innocent animals",
+		    "italic": true,
+			"color": "green",
+			"bold": false
+		},
+        
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_a/adventure",
+    "criteria": {
+        "complete_yellow": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

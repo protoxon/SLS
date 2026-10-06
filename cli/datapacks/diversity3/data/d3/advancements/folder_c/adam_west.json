@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:compass"
+        },
+        "title":
+		{
+            "text": "POW!",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You disguised yourself as the world's greatest actor",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/root",
+    "criteria": {
+        "adam_west": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

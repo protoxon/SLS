@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,8 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/errdef"
+	"oras.land/oras-go/v2/registry/remote"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/oras/client"
 	"protoxon.com/sls/daemon/oras/volume"
@@ -37,6 +40,9 @@ var ErrNotFound = system.ExpectedError(errors.NewPlain("volume reference not fou
 // ErrResolve is returned when the registry cannot be reached or the reference
 // cannot be resolved (connection refused, timeout, and similar).
 var ErrResolve = system.ExpectedError(errors.NewPlain("failed to resolve volume reference"))
+
+// ErrUnauthorized is returned when the registry rejects pull credentials.
+var ErrUnauthorized = system.ExpectedError(errors.NewPlain("registry authentication failed"))
 
 // IsRegistryUnavailable reports a tag resolve failure (missing or unreachable).
 func IsRegistryUnavailable(err error) bool {
@@ -164,13 +170,9 @@ func (s *Store) tryLock(key string) (func(), bool) {
 
 // Ensure resolves reference and unpacks into digests/ if needed.
 func (s *Store) Ensure(ctx context.Context, reference string, copyFiles bool, logger *log.Entry) (Result, error) {
-	repository, err := client.NewRepository(reference)
+	repository, desc, err := resolveForPull(ctx, reference)
 	if err != nil {
 		return Result{}, err
-	}
-	desc, err := repository.Resolve(ctx, repository.Reference.Reference)
-	if err != nil {
-		return Result{}, wrapResolveErr(err)
 	}
 	path, fetched, cached, err := s.materialize(ctx, repository, desc, reference, copyFiles, logger)
 	if err != nil {
@@ -198,12 +200,46 @@ func (s *Store) Probe(ctx context.Context, reference string) error {
 		ctx, cancel = context.WithTimeout(ctx, ProbeTimeout)
 		defer cancel()
 	}
-	repository, err := client.NewProbeRepository(reference)
+	_, _, err := resolveWithAuthRetry(ctx, reference, client.NewProbeRepository)
+	return err
+}
+
+func resolveForPull(ctx context.Context, reference string) (*remote.Repository, ocispec.Descriptor, error) {
+	return resolveWithAuthRetry(ctx, reference, client.NewRepository)
+}
+
+func resolveWithAuthRetry(ctx context.Context, reference string, open func(string) (*remote.Repository, error)) (*remote.Repository, ocispec.Descriptor, error) {
+	repository, err := open(reference)
 	if err != nil {
-		return err
+		return nil, ocispec.Descriptor{}, err
 	}
-	_, err = repository.Resolve(ctx, repository.Reference.Reference)
-	return wrapResolveErr(err)
+	desc, err := repository.Resolve(ctx, repository.Reference.Reference)
+	if err == nil {
+		return repository, desc, nil
+	}
+	if !isUnauthorized(err) {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	if rerr := client.RefreshCredentials(ctx); rerr != nil {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	repository, err = open(reference)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+	desc, err = repository.Resolve(ctx, repository.Reference.Reference)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	return repository, desc, nil
+}
+
+func isUnauthorized(err error) bool {
+	var resp *errcode.ErrorResponse
+	if errors.As(err, &resp) && resp.StatusCode == http.StatusUnauthorized {
+		return true
+	}
+	return false
 }
 
 // EnsurePinned returns the digest tree without resolving a tag. If the tree is
@@ -345,6 +381,9 @@ func digestFromTmpName(name string) (digest.Digest, error) {
 func wrapResolveErr(err error) error {
 	if err == nil {
 		return nil
+	}
+	if isUnauthorized(err) {
+		return errors.Wrap(ErrUnauthorized, err.Error())
 	}
 	if errors.Is(err, errdef.ErrNotFound) {
 		return errors.Wrap(ErrNotFound, err.Error())

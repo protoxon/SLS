@@ -1,0 +1,158 @@
+####################################################################
+# THIS FUNCTION WAS MADE BY QMAGNET
+# SEPTEMBER 7 2017
+# GIVE MAP MAKERS THE CREDIT THEY DESERVE
+# YOUTUBERS, TELL YOUR VIEWERS ABOUT OUR CHANNELS
+# YouTube -> https://youtube.com/theqmagnet
+# Twitter -> https://twitter.com/theqmagnet
+####################################################################
+
+# 1.13 #########################################
+
+
+
+
+
+# SINGLE BLOCK
+{CustomName: "{\"text\":\"A\",\"italic\":\"false\"}", Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "sc", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "ms", Color: 15}, {Pattern: "bo", Color: 0}]}
+
+# 1.13 SIGN ##################
+
+{
+Text1: "{\"text\":\"Hint\"}",
+Text2: "{\"text\":\"---------------\"}",
+Text3: "{\"bold\":true,\"text\":\"BLOCK\"}",
+Text4: "{\"text\":\"    \"}", 
+}
+
+##############################
+
+{CustomName: "{\"text\":\"Alphabox\"}", Items: [
+
+{Slot: 0b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "sc", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "ms", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"A\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 1b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "cs", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "ms", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "cbo", Color: 0}, {Pattern: "ls", Color: 15}, {Pattern: "bo", Color: 0}], Base: 15}, display: {Name: "{\"text\":\"B\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 2b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "ms", Color: 0}, {Pattern: "ls", Color: 15}, {Pattern: "bo", Color: 0}], Base: 15}, display: {Name: "{\"text\":\"C\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 3b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"D\",\"italic\":\"false\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 4b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "cs", Color: 0}, {Pattern: "ms", Color: 15}, {Pattern: "rs", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"E\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 5b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "cs", Color: 0}, {Pattern: "ms", Color: 15}, {Pattern: "rs", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"F\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 6b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "rs", Color: 15}, {Pattern: "hh", Color: 0}, {Pattern: "ms", Color: 15}, {Pattern: "vh", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "ls", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"G\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 7b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "sc", Color: 0}, {Pattern: "ms", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"H\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 8b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "cs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"I\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 9b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ls", Color: 15}, {Pattern: "hh", Color: 0}, {Pattern: "sc", Color: 0}, {Pattern: "vhr", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"J\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 10b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "drs", Color: 15}, {Pattern: "cr", Color: 15}, {Pattern: "vh", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"K\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 11b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ls", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"L\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 12b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "tt", Color: 15}, {Pattern: "tts", Color: 0}, {Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"M\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 13b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "cs", Color: 0}, {Pattern: "drs", Color: 15}, {Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"N\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 14b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"O\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 15b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "hhb", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bs", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "vh", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"P\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 16b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "cr", Color: 15}, {Pattern: "vh", Color: 0}, {Pattern: "hh", Color: 0}, {Pattern: "ms", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"Q\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 17b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "rs", Color: 15}, {Pattern: "hhb", Color: 0}, {Pattern: "drs", Color: 15}, {Pattern: "ld", Color: 0}, {Pattern: "ld", Color: 0}, {Pattern: "ld", Color: 0}, {Pattern: "ts", Color: 15}, {Pattern: "vh", Color: 15}, {Pattern: "ms", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"R\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 18b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "tt", Color: 15}, {Pattern: "bt", Color: 15}, {Pattern: "tr", Color: 15}, {Pattern: "bl", Color: 15}, {Pattern: "mr", Color: 0}, {Pattern: "drs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"S\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 19b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ts", Color: 15}, {Pattern: "cs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"T\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 20b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"U\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 21b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "ls", Color: 15}, {Pattern: "bt", Color: 0}, {Pattern: "dls", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"V\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 22b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "bt", Color: 15}, {Pattern: "bts", Color: 0}, {Pattern: "ls", Color: 15}, {Pattern: "rs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"W\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 23b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "tl", Color: 15}, {Pattern: "tr", Color: 15}, {Pattern: "bl", Color: 15}, {Pattern: "br", Color: 15}, {Pattern: "cs", Color: 0}, {Pattern: "cr", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"X\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 24b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "vh", Color: 15}, {Pattern: "vhr", Color: 15}, {Pattern: "sc", Color: 0}, {Pattern: "hhb", Color: 0}, {Pattern: "rs", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "ms", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"Y\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}},
+
+{Slot: 25b, id: "minecraft:white_banner", Count: 1b, tag: {HideFlags: 32, BlockEntityTag: {Patterns: [{Pattern: "dls", Color: 15}, {Pattern: "ts", Color: 15}, {Pattern: "bs", Color: 15}, {Pattern: "bo", Color: 0}]}, display: {Name: "{\"text\":\"Z\",\"italic\":\"false\",\"bold\":\"true\",\"color\":\"white\"}"}, CanPlaceOn: ["minecraft:jungle_leaves"]}}]}
+
+
+
+
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"A\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 1
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"B\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 2
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"C\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 3
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"D\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 4
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"E\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 5
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"F\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 6
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"G\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 7
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"H\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 8
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"I\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 9
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"J\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 10
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"K\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 11
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"L\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 12
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"M\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 13
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"N\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 14
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"O\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 15
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"P\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 16
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"Q\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 17
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"R\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 18
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"S\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 19
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"T\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 20
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"U\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 21
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"V\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 22
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"W\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 23
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"X\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 24
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"Y\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 25
+execute if block 998 64 -6 white_banner{CustomName:"{\"bold\":true,\"italic\":false,\"color\":\"white\",\"text\":\"Z\"}"} run scoreboard players set @e[tag=MainPuzzleScoreCloud] SelectedLetter 26
+
+
+
+
+
+#A
+setblock ~-1 ~3 ~ wall_banner 4 replace {Patterns:[{Pattern:"ts",Color:0},{Pattern:"ls",Color:0},{Pattern:"rs",Color:0},{Pattern:"ms",Color:0},{Pattern:"bo",Color:15}],Base:0}
+
+
+tag:{display:{Name:"A"},HopperItem:1b}
+
+
+/give @p banner 1 15 {HideFlags:32,display:{Name:"A"},CanPlaceOn:["minecraft:leaves"],BlockEntityTag:{Patterns:[{Pattern:"ts",Color:0},{Pattern:"ls",Color:0},{Pattern:"rs",Color:0},{Pattern:"ms",Color:0},{Pattern:"bo",Color:15}],Base:0}}
+
+[19:06:19] The data tag did not change: {Motion:[-2.9418112803628995E-14d,-0.0d,-9.44592822831499E-15d],UUIDLeast:-8238908972307323862L,Health:5s,Invulnerable:0b,Air:300s,OnGround:1b,Dimension:0,PortalCooldown:0,Rotation:[133.93422f,0.0f],Thrower:"qmagnet",FallDistance:0.0f,Item:{id:"minecraft:banner",Count:1b,tag:{RepairCost:0,HideFlags:32,BlockEntityTag:{Patterns:[{Pattern:"ts",Color:0},{Pattern:"ls",Color:0},{Pattern:"rs",Color:0},{Pattern:"ms",Color:0},{Pattern:"bo",Color:15}],Base:0},display:{Name:"A"},tag:{HopperItem:1b,display:{Name:"A"}}},Damage:15s},UUIDMost:2658361378138901773L,Pos:[997.9222742196428d,64.0d,-2.3963175181585674d],PickupDelay:0s,Fire:-1s,Age:62s}
+
+
+MINECRAFT
+
+GLOWSTONE
+ENDERMITE
+GUNPOWDER
+SWAMPLAND
+CHAINMAIL
+
+
+
+
+MINESHAFT
+MINECRAFT
+CHAINMAIL
+SANDSTONE
+GUNPOWDER
+CLOWNFISH
+GLOWSTONE
+SWIFTNESS
+ENDERMITE
+MOOSHROOM
+
+FIREWORKS
+SHARPNESS
+
+
+SUNFLOWER
+SWAMPLAND
+

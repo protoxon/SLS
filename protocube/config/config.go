@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/apex/log"
+	"github.com/creasty/defaults"
 	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,10 @@ type Configuration struct {
 	// Blueprint configures how blueprints are sourced (e.g. git remotes synced to disk).
 	Blueprint BlueprintConfiguration `yaml:"blueprint"`
 
+	// Registry holds the embedded registry store and pull credentials
+	// Protocube can send to nodes.
+	Registry RegistryConfiguration `yaml:"registry"`
+
 	// AllowedOrigins is a list of allowed request origins.
 	AllowedOrigins []string `json:"allowed_origins" yaml:"allowed_origins"`
 
@@ -67,18 +72,19 @@ type ApiConfiguration struct {
 
 	// TSL configuration for the daemon.
 	Tls struct {
-		Enabled         bool   `default:"true" yaml:"enabled"`
+		Enabled         bool   `yaml:"enabled"`
 		CertificateFile string `json:"cert" yaml:"cert"`
 		KeyFile         string `json:"key" yaml:"key"`
 	}
+
+	// Socket is the Unix admin socket used for local API access.
+	Socket string `yaml:"socket" default:"/var/lib/sls/sls.sock"`
 }
 
 type SystemConfiguration struct {
 	RootDirectory string `default:"/var/lib/protocube" yaml:"root_directory"`
 	LogDirectory  string `default:"/var/log/protocube" yaml:"log_directory"`
 
-	// Directory where state volumes are stored
-	Volumes string `default:"/var/lib/sls/volumes" json:"-" yaml:"volumes"`
 	// Directory where software config files are stored
 	Software string `default:"/var/lib/sls/software" json:"-" yaml:"software"`
 	// Directory where blueprints are stored
@@ -117,6 +123,87 @@ type BlueprintSourceAuth struct {
 	// Token is an inline HTTPS token (x-access-token). Prefer setting the
 	// GITHUB_TOKEN environment variable so secrets are not stored in config.
 	Token string `yaml:"token,omitempty"`
+}
+
+const defaultRegistryStorage = "/var/lib/sls/registry"
+
+// RegistryConfiguration is the embedded registry store plus pull credentials
+// for other registries.
+type RegistryConfiguration struct {
+	// Default is the public host[:port] or host/namespace prepended to short
+	// volume artifacts. Set this to this Protocube (for example
+	// volumes.example.com:5620 or volumes.example.com:5620/sls). Do not use
+	// api.host; 0.0.0.0 is not a client address.
+	Default string `yaml:"default"`
+	// Insecure means clients should use HTTP (not HTTPS) for Default's host.
+	Insecure bool `yaml:"insecure"`
+	// Storage is the filesystem root for the embedded OCI registry.
+	Storage     string               `default:"/var/lib/sls/registry" yaml:"storage"`
+	Credentials []RegistryCredential `yaml:"credentials"`
+}
+
+// StoragePath returns the filesystem root for the embedded registry.
+func (c RegistryConfiguration) StoragePath() string {
+	if s := strings.TrimSpace(c.Storage); s != "" {
+		return s
+	}
+	return defaultRegistryStorage
+}
+
+// RegistryCredential is a pull login for one registry host.
+type RegistryCredential struct {
+	Host     string `yaml:"host"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Insecure bool   `yaml:"insecure"`
+}
+
+// CredentialFor returns the credential for host (host or host:port), or nil.
+func (c RegistryConfiguration) CredentialFor(host string) *RegistryCredential {
+	host = NormalizeRegistryHost(host)
+	if host == "" {
+		return nil
+	}
+	for i := range c.Credentials {
+		if strings.EqualFold(NormalizeRegistryHost(c.Credentials[i].Host), host) {
+			return &c.Credentials[i]
+		}
+	}
+	return nil
+}
+
+// ResolvePassword returns the pull password. GHCR_TOKEN wins for ghcr.io.
+func (c RegistryCredential) ResolvePassword() string {
+	if strings.EqualFold(NormalizeRegistryHost(c.Host), "ghcr.io") {
+		if token := strings.TrimSpace(os.Getenv("GHCR_TOKEN")); token != "" {
+			return token
+		}
+	}
+	return c.Password
+}
+
+// NormalizeRegistryHost turns a user-supplied registry into a host[:port].
+func NormalizeRegistryHost(host string) string {
+	host = strings.TrimSpace(host)
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	return strings.TrimRight(host, "/")
+}
+
+func normalizeRegistryConfig(c *Configuration) {
+	if c == nil {
+		return
+	}
+	c.Registry.Default = strings.Trim(NormalizeRegistryHost(c.Registry.Default), "/")
+	creds := c.Registry.Credentials[:0]
+	for _, cred := range c.Registry.Credentials {
+		cred.Host = NormalizeRegistryHost(cred.Host)
+		if cred.Host == "" {
+			continue
+		}
+		creds = append(creds, cred)
+	}
+	c.Registry.Credentials = creds
 }
 
 // InitConfig Reads the configuration from the disk and then sets up the global singleton
@@ -184,8 +271,9 @@ func ConfigureDirectories() error {
 		return err
 	}
 
-	log.WithField("path", config.System.Volumes).Debug("ensuring volumes directory exists")
-	if err := os.MkdirAll(config.System.Volumes, 0o700); err != nil {
+	storage := config.Registry.StoragePath()
+	log.WithField("path", storage).Debug("ensuring registry storage directory exists")
+	if err := os.MkdirAll(storage, 0o700); err != nil {
 		return err
 	}
 
@@ -205,10 +293,21 @@ func loadConfigFromFile(path string) error {
 	if err := yaml.Unmarshal(bytes, &config); err != nil {
 		return err
 	}
+	normalizeRegistryConfig(&config)
+
+	// Always apply defaults after decoding so missing fields get filled in.
+	// This means removing a field from the YAML will cause the default to be used.
+	if err := applyDefaults(&config); err != nil {
+		return err
+	}
 
 	// Store this configuration in the global state.
 	set(&config)
 	return nil
+}
+
+func applyDefaults(c *Configuration) error {
+	return defaults.Set(c)
 }
 
 // Set the global configuration instance. This is a blocking operation such that
@@ -220,6 +319,20 @@ func set(configuration *Configuration) {
 	config = configuration
 }
 
+// SetForTest replaces the process-wide config. Tests only.
+func SetForTest(c *Configuration) {
+	set(c)
+}
+
+// Swap replaces the global configuration and returns the previous value.
+func Swap(c *Configuration) *Configuration {
+	mutex.Lock()
+	defer mutex.Unlock()
+	prev := config
+	config = c
+	return prev
+}
+
 func writeDefaultConfig(path string) error {
 	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -228,6 +341,9 @@ func writeDefaultConfig(path string) error {
 
 	var c Configuration
 	if err := yaml.Unmarshal(defaultConfig, &c); err != nil {
+		return err
+	}
+	if err := applyDefaults(&c); err != nil {
 		return err
 	}
 	c.Uuid = uuid.New().String()

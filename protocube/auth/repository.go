@@ -98,6 +98,20 @@ func ListByOrganization(orgID uuid.UUID) ([]*apikey.APIKey, error) {
 	return apiKeys, nil
 }
 
+// ListAll returns every stored API key.
+func ListAll() ([]*apikey.APIKey, error) {
+	var keys []models.StoredKey
+	if err := database.Instance().Find(&keys).Error; err != nil {
+		return nil, errors.Wrap(err, "failed to list API keys")
+	}
+
+	apiKeys := make([]*apikey.APIKey, 0, len(keys))
+	for _, sk := range keys {
+		apiKeys = append(apiKeys, sk.ToAPIKey())
+	}
+	return apiKeys, nil
+}
+
 // Update an existing API key
 func UpdateKey(key *apikey.APIKey) error {
 	sk := models.StoredKey{

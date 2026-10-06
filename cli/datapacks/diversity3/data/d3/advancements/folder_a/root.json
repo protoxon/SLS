@@ -1,0 +1,30 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:white_wool"
+        },
+        "title":
+		{
+            "text": "Completion",
+            "color": "white",
+			"bold": false
+			
+		},
+		"description":
+		{   "text": "You activated the monument, ready to take on the challenges",
+		    "italic": true,
+			"color": "green",
+			"bold": false
+		},
+
+		"background": "minecraft:textures/block/green_terracotta.png",
+		"frame": "challenge",
+		"show_toast": false,
+		"announce_to_chat": false
+    },
+    "criteria": {
+        "completion_root": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

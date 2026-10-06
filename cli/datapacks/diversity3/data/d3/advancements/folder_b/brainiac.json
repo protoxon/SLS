@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:brain_coral_block"
+        },
+        "title":
+		{
+            "text": "Brainiac",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "TRIVIA BRANCH: Complete the Branch with fewer than 10 wrong guesses",
+		    "italic": true,
+			"color": "red",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": false
+    },
+    "parent": "d3:folder_b/big_spender",
+    "criteria": {
+        "brainiac": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

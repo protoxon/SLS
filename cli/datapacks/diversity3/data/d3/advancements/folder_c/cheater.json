@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:barrier"
+        },
+        "title":
+		{
+            "text": "Cheater",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You went Creative Mode. You never go full Creative Mode.",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/hole_in_one",
+    "criteria": {
+        "cheater": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

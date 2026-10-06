@@ -135,6 +135,7 @@ func (v *Volume) UnmarshalYAML(unmarshal func(any) error) error {
 func (v *Volume) Normalize() {
 	v.Artifact = strings.TrimSpace(v.Artifact)
 	v.Source = strings.TrimSpace(v.Source)
+	v.Path = strings.TrimSpace(v.Path)
 	v.Target = strings.TrimSpace(v.Target)
 	v.Name = strings.TrimSpace(v.Name)
 	if v.Name == "" {
@@ -167,8 +168,21 @@ func artifactName(ref string) string {
 	return ref
 }
 
+func resolveVolumeArtifact(artifact string) (string, error) {
+	var reg config.RegistryConfiguration
+	if cfg := config.Get(); cfg != nil {
+		reg = cfg.Registry
+	}
+	return reg.ResolveArtifact(artifact)
+}
+
 func (v *Volume) Validate() error {
 	v.Normalize()
+	path, err := cleanVolumePath(v.Path)
+	if err != nil {
+		return err
+	}
+	v.Path = path
 	if v.Artifact != "" && v.Source != "" {
 		return errors.New("volume cannot set both artifact and source")
 	}
@@ -182,6 +196,11 @@ func (v *Volume) Validate() error {
 		return errors.New("volume.name is required for a local volume")
 	}
 	if v.Artifact != "" {
+		resolved, err := resolveVolumeArtifact(v.Artifact)
+		if err != nil {
+			return err
+		}
+		v.Artifact = resolved
 		if v.Mode != VolumeModeCOW && v.Mode != VolumeModeRO {
 			return errors.New("volume.mode for an artifact must be cow or ro")
 		}
@@ -197,6 +216,26 @@ func (v *Volume) Validate() error {
 		return errors.New("volume.mode must be one of: cow, ro, rw")
 	}
 	return nil
+}
+
+// cleanVolumePath returns a relative directory inside a volume.
+// An empty path mounts the volume root.
+func cleanVolumePath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" || path == "." {
+		return "", nil
+	}
+	if filepath.IsAbs(path) {
+		return "", errors.New("volume.path must be a relative directory inside the volume")
+	}
+	rel := filepath.ToSlash(filepath.Clean(path))
+	if rel == "." {
+		return "", nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return "", errors.New("volume.path must stay inside the volume")
+	}
+	return rel, nil
 }
 
 func validateLocalVolumeSource(source string) error {

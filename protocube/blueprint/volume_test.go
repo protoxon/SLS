@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gopkg.in/yaml.v3"
+	"protoxon.com/sls/protocube/config"
 )
 
 func TestArtifactName(t *testing.T) {
@@ -123,6 +124,32 @@ func TestVolumeLocalRW(t *testing.T) {
 	}
 }
 
+func TestVolumePath(t *testing.T) {
+	v := Volume{
+		Artifact: "ghcr.io/protoxon/sls/plugins:latest",
+		Path:     "missile_wars/",
+		Target:   "/plugins",
+	}
+	if err := v.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if v.Path != "missile_wars" {
+		t.Fatalf("path: %q", v.Path)
+	}
+	if v.Name != "plugins" {
+		t.Fatalf("name: %q", v.Name)
+	}
+
+	v = Volume{Artifact: "ghcr.io/protoxon/sls/plugins:latest", Path: "../etc", Target: "/plugins"}
+	if err := v.Validate(); err == nil {
+		t.Fatal("expected path escape to fail")
+	}
+	v = Volume{Artifact: "ghcr.io/protoxon/sls/plugins:latest", Path: "/missile_wars", Target: "/plugins"}
+	if err := v.Validate(); err == nil {
+		t.Fatal("expected absolute path to fail")
+	}
+}
+
 func TestVolumeRejectsCacheSource(t *testing.T) {
 	v := Volume{Source: "digests/sha256-abc", Target: "/world", Mode: VolumeModeRW}
 	if err := v.Validate(); err == nil {
@@ -131,6 +158,34 @@ func TestVolumeRejectsCacheSource(t *testing.T) {
 	v = Volume{Source: "../etc", Target: "/world", Mode: VolumeModeRW}
 	if err := v.Validate(); err == nil {
 		t.Fatal("expected path escape to fail")
+	}
+}
+
+func TestVolumeResolvesShortArtifact(t *testing.T) {
+	prev := config.Swap(&config.Configuration{
+		Registry: config.RegistryConfiguration{Default: "ghcr.io/jessefaler"},
+	})
+	t.Cleanup(func() { config.Swap(prev) })
+
+	v := Volume{Artifact: "diversity_3:latest", Target: "/world"}
+	if err := v.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if v.Artifact != "ghcr.io/jessefaler/diversity_3:latest" {
+		t.Fatalf("artifact: %q", v.Artifact)
+	}
+	if v.Name != "diversity_3" {
+		t.Fatalf("name: %q", v.Name)
+	}
+}
+
+func TestVolumeRejectsShortArtifactWithoutDefault(t *testing.T) {
+	prev := config.Swap(&config.Configuration{})
+	t.Cleanup(func() { config.Swap(prev) })
+
+	v := Volume{Artifact: "diversity_3:latest", Target: "/world"}
+	if err := v.Validate(); err == nil {
+		t.Fatal("expected short artifact without registry.default to fail")
 	}
 }
 

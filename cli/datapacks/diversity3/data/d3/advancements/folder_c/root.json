@@ -1,0 +1,18 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:structure_void"
+        },
+        "title": "Secrets",
+        "description": "",
+        "background": "minecraft:textures/block/blue_terracotta.png",
+		"frame": "challenge",
+		"show_toast": false,
+		"announce_to_chat": false
+    },
+    "criteria": {
+        "secrets_root": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

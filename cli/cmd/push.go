@@ -37,7 +37,7 @@ Unchanged files stay on their old layers. After many incremental
 pushes the artifact can accumulate many small layers. --rewrite
 repacks everything into new layers. Push warns when that looks
 worthwhile.`,
-	Args:          cobra.RangeArgs(1, 2),
+	Args:          rangeArgs(1, 2),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -52,10 +52,14 @@ worthwhile.`,
 		if err != nil {
 			return err
 		}
+		ref, err := resolveVolumeRef(cmd.Context(), args[0])
+		if err != nil {
+			return err
+		}
 		printer := progress.New(cmd.OutOrStdout(), progressMode)
 		defer printer.Close()
-		printer.Start("Pushing", args[0])
-		desc, err := client.Push(context.Background(), args[0], path, printer.Handle, client.Options{
+		printer.Start("Pushing", ref)
+		desc, err := client.Push(context.Background(), ref, path, printer.Handle, client.Options{
 			PlainHTTP:   plainHTTP,
 			Compression: pushCompression,
 			Rewrite:     pushRewrite,

@@ -340,35 +340,46 @@ func digestDestFile(dest, rel string) (digest.Digest, bool, error) {
 
 // FetchConfig loads the volume config blob for an OCI manifest descriptor.
 func FetchConfig(ctx context.Context, src content.Fetcher, desc ocispec.Descriptor) (Manifest, error) {
-	return fetchConfig(ctx, src, desc, nil)
+	_, cfg, err := fetchArtifact(ctx, src, desc, nil)
+	return cfg, err
+}
+
+// FetchArtifact loads the OCI manifest and volume config for desc.
+func FetchArtifact(ctx context.Context, src content.Fetcher, desc ocispec.Descriptor) (ocispec.Manifest, Manifest, error) {
+	return fetchArtifact(ctx, src, desc, nil)
 }
 
 func fetchConfig(ctx context.Context, src content.Fetcher, desc ocispec.Descriptor, stats *UnpackStats) (Manifest, error) {
+	_, cfg, err := fetchArtifact(ctx, src, desc, stats)
+	return cfg, err
+}
+
+func fetchArtifact(ctx context.Context, src content.Fetcher, desc ocispec.Descriptor, stats *UnpackStats) (ocispec.Manifest, Manifest, error) {
 	raw, err := content.FetchAll(ctx, src, desc)
 	if err != nil {
-		return Manifest{}, errors.Wrap(err, "failed to fetch volume manifest")
+		return ocispec.Manifest{}, Manifest{}, errors.Wrap(err, "failed to fetch volume manifest")
 	}
 	stats.add(int64(len(raw)))
 	var man ocispec.Manifest
 	if err := json.Unmarshal(raw, &man); err != nil {
-		return Manifest{}, errors.Wrap(err, "failed to parse volume manifest")
+		return ocispec.Manifest{}, Manifest{}, errors.Wrap(err, "failed to parse volume manifest")
 	}
 	if man.ArtifactType != "" && man.ArtifactType != ArtifactType {
-		return Manifest{}, errors.Errorf("unexpected artifact type %q", man.ArtifactType)
+		return ocispec.Manifest{}, Manifest{}, errors.Errorf("unexpected artifact type %q", man.ArtifactType)
 	}
 	configBytes, err := content.FetchAll(ctx, src, man.Config)
 	if err != nil {
-		return Manifest{}, errors.Wrap(err, "failed to fetch volume config")
+		return ocispec.Manifest{}, Manifest{}, errors.Wrap(err, "failed to fetch volume config")
 	}
 	stats.add(int64(len(configBytes)))
 	var cfg Manifest
 	if err := json.Unmarshal(configBytes, &cfg); err != nil {
-		return Manifest{}, errors.Wrap(err, "failed to parse volume config")
+		return ocispec.Manifest{}, Manifest{}, errors.Wrap(err, "failed to parse volume config")
 	}
 	if cfg.MediaType != "" && cfg.MediaType != ConfigMediaType {
-		return Manifest{}, errors.Errorf("unexpected config media type %q", cfg.MediaType)
+		return ocispec.Manifest{}, Manifest{}, errors.Errorf("unexpected config media type %q", cfg.MediaType)
 	}
-	return cfg, nil
+	return man, cfg, nil
 }
 
 func decodePart(ctx context.Context, puller *layerPuller, cfg *Manifest, filePath string, part Part) ([]byte, error) {

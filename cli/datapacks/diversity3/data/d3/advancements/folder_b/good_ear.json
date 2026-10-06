@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:note_block"
+        },
+        "title":
+		{
+            "text": "Good Ear",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "PUZZLE BRANCH: Solve the Brown Room without any fails",
+		    "italic": true,
+			"color": "red",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": false
+    },
+    "parent": "d3:folder_b/dog_person",
+    "criteria": {
+        "good_ear": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

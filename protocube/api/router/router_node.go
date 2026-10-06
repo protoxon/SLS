@@ -11,6 +11,7 @@ import (
 	"protoxon.com/sls/protocube/api/router/httperror"
 	"protoxon.com/sls/protocube/api/router/middleware"
 	"protoxon.com/sls/protocube/client"
+	"protoxon.com/sls/protocube/config"
 	"protoxon.com/sls/protocube/models"
 	"protoxon.com/sls/protocube/node/allocator"
 	"protoxon.com/sls/protocube/server"
@@ -84,9 +85,14 @@ func (r *Router) postNodeRegister(c *gin.Context) {
 
 func postNodeHeartbeat(c *gin.Context) {
 	node := middleware.ExtractNode(c)
-	// Call the nodes heartbeat handler
 	node.OnHeartBeat()
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, models.HeartbeatResponse{
+		RegistryRevision: config.RegistrySnapshot().Revision,
+	})
+}
+
+func getNodeRegistry(c *gin.Context) {
+	c.JSON(http.StatusOK, config.RegistrySnapshot())
 }
 
 func (r *Router) postNodeDisconnect(c *gin.Context) {

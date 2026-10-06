@@ -18,6 +18,7 @@ import (
 	"protoxon.com/sls/daemon/environment/docker"
 	"protoxon.com/sls/daemon/internal/database"
 	"protoxon.com/sls/daemon/internal/message"
+	orasclient "protoxon.com/sls/daemon/oras/client"
 	"protoxon.com/sls/daemon/remote"
 	"protoxon.com/sls/daemon/server"
 )
@@ -65,7 +66,13 @@ func run(cmd *cobra.Command, _ []string) {
 	// Register the on connected callback
 	// This is called when the node successfully connects to Protocube
 	// When connected sync server configurations
+	orasclient.SetRefreshCredentials(func(ctx context.Context) error {
+		return client.SyncRegistry(ctx)
+	})
 	client.SetOnConnected(func(ctx context.Context) {
+		if err := client.SyncRegistry(ctx); err != nil {
+			log.WithError(err).Error("failed to load registry credentials")
+		}
 		err := manager.Sync(cmd.Context())
 		if err != nil {
 			log.WithField("error", err).Fatal("failed to load server configurations")

@@ -168,6 +168,35 @@ func TestUnpackEmitsMountProgress(t *testing.T) {
 	}
 }
 
+func TestFetchArtifact(t *testing.T) {
+	ctx := context.Background()
+	src := t.TempDir()
+	writeTree(t, src, map[string]string{"world/level.dat": "level"})
+	opts := testPackOpts()
+	opts.Mount = MountInfo{Target: "/world", Mode: "ro"}
+	store := memory.New()
+	desc, err := Pack(ctx, store, src, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	man, cfg, err := FetchArtifact(ctx, store, desc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if man.ArtifactType != ArtifactType {
+		t.Fatalf("artifact type: %q", man.ArtifactType)
+	}
+	if cfg.MountInfo != (MountInfo{Target: "/world", Mode: "ro"}) {
+		t.Fatalf("config mount: %#v", cfg.MountInfo)
+	}
+	if len(cfg.Layers) == 0 || cfg.LayerBytes() == 0 {
+		t.Fatalf("layers=%d bytes=%d", len(cfg.Layers), cfg.LayerBytes())
+	}
+	if cfg.FileBytes() == 0 {
+		t.Fatalf("file bytes=%d", cfg.FileBytes())
+	}
+}
+
 func TestUnpackWritesMountJSON(t *testing.T) {
 	ctx := context.Background()
 	src := t.TempDir()

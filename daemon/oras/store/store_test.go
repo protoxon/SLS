@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"oras.land/oras-go/v2/content/memory"
 	"oras.land/oras-go/v2/errdef"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 	"protoxon.com/sls/daemon/oras/volume"
 	"protoxon.com/sls/daemon/system"
 )
@@ -596,6 +598,59 @@ func TestWrapResolveErrResolve(t *testing.T) {
 	if !system.IsExpected(err) {
 		t.Fatal("resolve should be expected")
 	}
+}
+
+func TestWrapResolveErrUnauthorized(t *testing.T) {
+	err := wrapResolveErr(&errcode.ErrorResponse{StatusCode: http.StatusUnauthorized})
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("unauthorized should map to ErrUnauthorized, got %v", err)
+	}
+	if IsRegistryUnavailable(err) {
+		t.Fatal("unauthorized should not fall back to a local volume")
+	}
+}
+
+func TestRetryUnauthorizedSucceedsAfterRefresh(t *testing.T) {
+	var n int
+	err := retryUnauthorized(func() error {
+		n++
+		if n == 1 {
+			return &errcode.ErrorResponse{StatusCode: http.StatusUnauthorized}
+		}
+		return nil
+	}, func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 {
+		t.Fatalf("resolves %d", n)
+	}
+}
+
+func TestRetryUnauthorizedKeepsErrorWhenRefreshFails(t *testing.T) {
+	err := retryUnauthorized(func() error {
+		return &errcode.ErrorResponse{StatusCode: http.StatusUnauthorized}
+	}, func() error { return errors.New("protocube down") })
+	if !errors.Is(err, ErrUnauthorized) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func retryUnauthorized(resolve func() error, refresh func() error) error {
+	err := resolve()
+	if err == nil {
+		return nil
+	}
+	if !isUnauthorized(err) || refresh == nil {
+		return wrapResolveErr(err)
+	}
+	if rerr := refresh(); rerr != nil {
+		return wrapResolveErr(err)
+	}
+	if err := resolve(); err != nil {
+		return wrapResolveErr(err)
+	}
+	return nil
 }
 
 func TestLatestLocalByOrigin(t *testing.T) {

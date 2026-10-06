@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:cyan_wool"
+        },
+        "title":
+		{
+            "text": "Escape Complete",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You broke free from Cold Fusion's prison trials",
+		    "italic": true,
+			"color": "green",
+			"bold": false
+		},
+		
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_a/parkour",
+    "criteria": {
+        "complete_cyan": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

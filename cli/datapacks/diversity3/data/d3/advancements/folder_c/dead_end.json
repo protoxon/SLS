@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:stone"
+        },
+        "title":
+		{
+            "text": "Dead End",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You made that tricky jump only to find nothing but this lame advancement",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/tomb_raider",
+    "criteria": {
+        "dead_end": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

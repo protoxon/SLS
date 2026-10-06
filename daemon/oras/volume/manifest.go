@@ -125,10 +125,20 @@ func (m Manifest) fileMap() map[string]File {
 	return out
 }
 
-func (m Manifest) layerBytes() int64 {
+// LayerBytes is the total compressed size of every layer blob.
+func (m Manifest) LayerBytes() int64 {
 	var n int64
 	for _, layer := range m.Layers {
 		n += layer.Size
+	}
+	return n
+}
+
+// FileBytes is the total uncompressed size of every regular file.
+func (m Manifest) FileBytes() int64 {
+	var n int64
+	for _, file := range m.Files {
+		n += file.Size
 	}
 	return n
 }
@@ -138,7 +148,7 @@ func (m Manifest) avgLayerBytes() int64 {
 	if n == 0 {
 		return 0
 	}
-	return m.layerBytes() / int64(n)
+	return m.LayerBytes() / int64(n)
 }
 
 // Fragmented reports an incremental-style layer list: many layers whose

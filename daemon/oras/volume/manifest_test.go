@@ -29,4 +29,14 @@ func TestManifestFragmented(t *testing.T) {
 	if frag.avgLayerBytes() != 1<<20 {
 		t.Fatalf("avg %d", frag.avgLayerBytes())
 	}
+	if frag.LayerBytes() != 16<<20 {
+		t.Fatalf("layers %d", frag.LayerBytes())
+	}
+}
+
+func TestManifestFileBytes(t *testing.T) {
+	m := Manifest{Files: []File{{Size: 8}, {Size: 100}}}
+	if m.FileBytes() != 108 {
+		t.Fatalf("files %d", m.FileBytes())
+	}
 }

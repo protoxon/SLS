@@ -24,7 +24,7 @@ the artifact.
 
 Progress is a live TTY view by default. Use --progress=plain
 for append-only logs (also used when stdout is not a terminal).`,
-	Args:          cobra.RangeArgs(1, 2),
+	Args:          rangeArgs(1, 2),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -32,10 +32,14 @@ for append-only logs (also used when stdout is not a terminal).`,
 		if len(args) == 2 {
 			path = args[1]
 		}
+		ref, err := resolveVolumeRef(cmd.Context(), args[0])
+		if err != nil {
+			return err
+		}
 		printer := progress.New(cmd.OutOrStdout(), progressMode)
 		defer printer.Close()
-		printer.Start("Pulling", args[0])
-		desc, err := client.Pull(context.Background(), args[0], path, printer.Handle, client.Options{PlainHTTP: plainHTTP, Delete: pullDelete})
+		printer.Start("Pulling", ref)
+		desc, err := client.Pull(context.Background(), ref, path, printer.Handle, client.Options{PlainHTTP: plainHTTP, Delete: pullDelete})
 		if err != nil {
 			return err
 		}

@@ -181,6 +181,18 @@ func (r *Router) getAllNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, out)
 }
 
+// getDefaultRegistry returns the configured default registry host or host/namespace
+// and whether clients should use HTTP for it. It does not include pull credentials.
+func getDefaultRegistry(c *gin.Context) {
+	def := ""
+	insecure := false
+	if cfg := config.Get(); cfg != nil {
+		def = cfg.Registry.Default
+		insecure = cfg.Registry.Insecure
+	}
+	c.JSON(http.StatusOK, gin.H{"default": def, "insecure": insecure})
+}
+
 // Returns information about the system that protocube is running on.
 func getSystemInformation(c *gin.Context) {
 	i, err := system.GetSystemInformation()

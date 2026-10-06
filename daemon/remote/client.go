@@ -22,6 +22,9 @@ type Client interface {
 	GetServerConfiguration(ctx context.Context, uuid string) (models.ServerConfiguration, error)
 	GetInstallationScript(ctx context.Context, serverId string) (InstallationScript, error)
 	SetInstallationStatus(ctx context.Context, uuid string, data InstallStatusRequest) error
+	GetRegistry(ctx context.Context) (models.RegistrySnapshot, error)
+	SyncRegistry(ctx context.Context) error
+	SyncRegistryIfChanged(ctx context.Context, revision string) error
 	SetOnConnected(callback func(context.Context))
 }
 

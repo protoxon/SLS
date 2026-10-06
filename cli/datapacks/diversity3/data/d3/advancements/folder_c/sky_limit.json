@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:elytra"
+        },
+        "title":
+		{
+            "text": "Sky's the Limit",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "You broke the world height",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/cfg_head",
+    "criteria": {
+        "sky_limit": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

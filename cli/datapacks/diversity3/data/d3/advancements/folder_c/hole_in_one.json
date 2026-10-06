@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:ender_eye"
+        },
+        "title":
+		{
+            "text": "Hole-In-One",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "With perfect aim, you mastered the Ender toss",
+		    "italic": true,
+			"color": "light_purple",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": true
+    },
+    "parent": "d3:folder_c/secret_branch",
+    "criteria": {
+        "hole_in_one": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

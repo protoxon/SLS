@@ -8,7 +8,8 @@ import (
 )
 
 // Delete removes the volume manifest for reference from the registry.
-// Blobs are left for the registry to garbage-collect.
+// Protocube's embedded registry schedules debounced GC after deletes;
+// other registries leave blobs until their own GC runs.
 func Delete(ctx context.Context, reference string, opts Options) (ocispec.Descriptor, error) {
 	repository, err := NewRepository(reference, opts)
 	if err != nil {

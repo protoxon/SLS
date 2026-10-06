@@ -50,6 +50,10 @@ func getLimiter(clientID string) *clientEntry {
 // RateLimiter Provides per-client rate limiting using ip based limiters
 func RateLimiter() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if IsRegistryPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
 		clientID := c.ClientIP()
 		entry := getLimiter(clientID)
 

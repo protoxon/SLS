@@ -9,10 +9,10 @@ telemetry_enabled: true
 system:
   root_directory: "/var/lib/sls"
   log_directory: "/var/log/sls/protocube"
-  volumes: "/var/lib/sls/volumes"
   blueprints: "/var/lib/sls/blueprints"
   software: "/var/lib/sls/software"
   plugins: "/var/lib/sls/plugins"
+  volumes: "/var/lib/sls/volumes"
 
 # Optional remote blueprint sources. Each source is synced to disk under
 # system.blueprints before blueprints are loaded (and on reload by default).
@@ -30,9 +30,35 @@ system:
 blueprint:
   sources: []
 
+# default is the public host[:port] or host/namespace prepended to short
+# volume artifacts (diversity_3:latest → volumes.example.com:5620/sls/diversity_3:latest).
+# Set this to this Protocube's client-facing address, not api.host (0.0.0.0
+# is not reachable). storage is the on-disk OCI blob/manifest store.
+# credentials are pull logins for *other* registries sent to nodes. Prefer env vars.
+# Do not add this Protocube host here; nodes use their existing token.
+#
+# registry:
+#   default: volumes.example.com:5620/sls
+#   insecure: false                  # HTTP for default host (clients and CLI)
+#   storage: /var/lib/sls/registry
+#   credentials:
+#     - host: ghcr.io
+#       username: jessefaler
+#       password: "ghp_..."          # PAT with read:packages; GHCR_TOKEN env is preferred
+#     - host: localhost:5000
+#       username: sls
+#       password: "..."
+#       insecure: true               # HTTP
+registry:
+  default: ""
+  insecure: false
+  storage: /var/lib/sls/registry
+  credentials: []
+
 api:
   host: "0.0.0.0"
   port: 5620
+  socket: /var/lib/sls/sls.sock
   tls:
     enabled: true
     cert: "/etc/ssl/certs/cert.pem"

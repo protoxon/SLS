@@ -127,6 +127,11 @@ func (c *CachedStore) ListByOrganization(ctx context.Context, orgID uuid.UUID) (
 	return ListByOrganization(orgID)
 }
 
+// ListAll returns every stored API key from the database.
+func (c *CachedStore) ListAll(ctx context.Context) ([]*apikey.APIKey, error) {
+	return ListAll()
+}
+
 // Update key
 func (c *CachedStore) Update(ctx context.Context, key *apikey.APIKey) error {
 	if err := UpdateKey(key); err != nil {

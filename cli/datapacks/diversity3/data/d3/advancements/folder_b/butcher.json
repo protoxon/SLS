@@ -1,0 +1,31 @@
+{
+    "display": {
+        "icon": {
+            "item": "minecraft:iron_sword"
+        },
+        "title":
+		{
+            "text": "Butcher",
+            "color": "white",
+			"bold": true
+			
+		},
+		"description":
+		{   "text": "ARENA BRANCH: Get over 1000 kills in the Arena",
+		    "italic": true,
+			"color": "red",
+			"bold": false
+		},
+
+		"frame": "task",
+		"show_toast": true,
+		"announce_to_chat": false,
+		"hidden": false
+    },
+    "parent": "d3:folder_b/engineer",
+    "criteria": {
+        "butcher": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}

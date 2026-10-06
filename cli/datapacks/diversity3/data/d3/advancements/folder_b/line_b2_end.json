@@ -1,0 +1,8 @@
+{
+   "parent": "d3:folder_b/ringmaster",
+    "criteria": {
+        "line_b2_end": {
+            "trigger": "minecraft:impossible"
+        }
+    }
+}
