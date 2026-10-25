@@ -65,8 +65,8 @@ github.com/gabriel-vasile/mimetype v1.4.12 h1:e9hWvmLYvtp846tLHam2o++qitpguFiYCK
 github.com/gabriel-vasile/mimetype v1.4.12/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/gammazero/deque v1.2.2 h1:zD+4g/JzU5MdHWiPzMeG7OeFW5plbhYKqHfSNDnQ3E8=
 github.com/gammazero/deque v1.2.2/go.mod h1:b0Hd32YGkBkCvq+lAX5i2bKhsBc9AJNZvv4vqNqsvJc=
-github.com/gammazero/workerpool v1.2.2 h1:ThLMsRsi5tFu5A+yWQcDVUjAijYQUmv9sjmE/AtksVY=
-github.com/gammazero/workerpool v1.2.2/go.mod h1:nbtgxeEYc+vZWZdZjYpHOyVwqXlStlplhfOf1bQu27s=
+github.com/gammazero/workerpool v1.3.0 h1:TD/xAtP7MXbBoFyBGV4lj3LlWBi6P0wOcyRFvWqIx0g=
+github.com/gammazero/workerpool v1.3.0/go.mod h1:nbtgxeEYc+vZWZdZjYpHOyVwqXlStlplhfOf1bQu27s=
 github.com/gin-contrib/sse v1.1.0 h1:n0w2GMuUpWDVp7qSpvze6fAu9iRxJY4Hmj6AmBOU05w=
 github.com/gin-contrib/sse v1.1.0/go.mod h1:hxRZ5gVpWMT7Z0B0gSNYqqsSCNIJMjzvm6fqCz9vjwM=
 github.com/gin-gonic/gin v1.12.0 h1:b3YAbrZtnf8N//yjKeU2+MQsh2mY5htkZidOM7O0wG8=
