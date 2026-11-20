@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -15,9 +16,10 @@ import (
 	"protoxon.com/sls/daemon/internal/overlay"
 	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/oras/store"
-	"protoxon.com/sls/daemon/oras/volume"
 	"protoxon.com/sls/daemon/server/filesystem"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/snapshot"
+	"protoxon.com/sls/internal/volume"
 )
 
 // PullVolume resolves and unpacks a volume artifact into the given store.
@@ -61,9 +63,10 @@ func (s *Server) validateVolumes() error {
 	return nil
 }
 
-// probeVolumes checks each artifact volume is on disk or resolvable. It does
-// not pull. Create uses this so a missing or unreachable volume fails the
-// request instead of a later background start.
+// probeVolumes checks each artifact volume is on disk or resolvable and each
+// local volume's directory exists. It does not pull. Create uses this so a
+// missing or unreachable volume fails the request instead of a later
+// background start, which only checks local volumes after the install.
 func (s *Server) probeVolumes(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -74,6 +77,13 @@ func (s *Server) probeVolumes(ctx context.Context) error {
 	defer cancel()
 	for _, v := range s.volumes {
 		if v.Artifact == "" {
+			cfg := config.Get()
+			if cfg == nil {
+				return errors.New("daemon configuration is not loaded")
+			}
+			if _, err := resolveVolumeDir(v, cfg.System.Volumes); err != nil {
+				return err
+			}
 			continue
 		}
 		if st == nil {
@@ -100,6 +110,9 @@ func (s *Server) probeVolumes(ctx context.Context) error {
 func (s *Server) initVolumes(ctx context.Context) error {
 	if s.volumesConfigured {
 		return nil
+	}
+	if err := s.EnsureSnapshots(ctx); err != nil {
+		return err
 	}
 	if err := s.EnsureVolumes(ctx); err != nil {
 		return err
@@ -216,7 +229,63 @@ func (s *Server) configureMounts() error {
 		overlayTarget := filepath.Join(volume, strings.TrimPrefix(cleanTarget, "/"))
 		ov.EnsureOverlay(name, sources, overlayTarget)
 	}
+	return s.prependSnapshotLowers(ov, volume)
+}
+
+// prependSnapshotLowers mounts snapshot diffs above each overlay's existing lowers.
+// Snapshot order is highest precedence first. A snapshot target with no overlay
+// on this server is an error.
+func (s *Server) prependSnapshotLowers(ov *filesystem.OverlayVolume, data string) error {
+	if len(s.snapshots) == 0 || ov == nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	for _, o := range ov.Overlays {
+		if o == nil {
+			continue
+		}
+		target := snapshot.NormalizeTarget(overlayTargetPath(data, o.Merged))
+		dirs, err := s.snapshotLowers(target)
+		if err != nil {
+			return err
+		}
+		if len(dirs) == 0 {
+			seen[target] = struct{}{}
+			continue
+		}
+		o.SetLower(append(dirs, o.Lower...))
+		seen[target] = struct{}{}
+	}
+	cfg := config.Get()
+	if cfg == nil {
+		return errors.New("daemon configuration is not loaded")
+	}
+	for _, mount := range s.snapshots {
+		local, err := snapshot.ReadLocal(filepath.Join(cfg.System.Snapshots, mount.ID))
+		if err != nil {
+			return errors.Wrapf(err, "snapshot %s", mount.ID)
+		}
+		for _, target := range local.Targets {
+			name := snapshot.NormalizeTarget(target.Target)
+			if _, ok := seen[name]; !ok {
+				return errors.Errorf("snapshot %s target %s is not an overlay on this server", mount.ID, name)
+			}
+		}
+	}
 	return nil
+}
+
+func overlayTargetPath(data, merged string) string {
+	data = filepath.Clean(data)
+	merged = filepath.Clean(merged)
+	if merged == data {
+		return "/"
+	}
+	rel, err := filepath.Rel(data, merged)
+	if err != nil {
+		return merged
+	}
+	return "/" + filepath.ToSlash(rel)
 }
 
 func isRootCowTarget(target string) bool {
@@ -250,7 +319,56 @@ func resolveVolumeDir(v models.Volume, volumesRoot string) (string, error) {
 	} else if !exists {
 		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': source path does not exist: %s", name, absResolved)
 	}
-	return absResolved, nil
+	sub, err := cleanVolumePath(v.Path)
+	if err != nil {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': %s", name, err.Error())
+	}
+	if sub == "" {
+		return absResolved, nil
+	}
+	rootReal, err := filepath.EvalSymlinks(absResolved)
+	if err != nil {
+		return "", errors.Wrapf(err, "volume '%s': failed to resolve source path: %s", name, absResolved)
+	}
+	dir := filepath.Join(rootReal, filepath.FromSlash(sub))
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s does not exist", name, sub)
+		}
+		return "", errors.Wrapf(err, "volume '%s': failed to check path %s", name, sub)
+	}
+	if !info.IsDir() {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s is not a directory", name, sub)
+	}
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", errors.Wrapf(err, "volume '%s': failed to resolve path %s", name, sub)
+	}
+	if !filesystem.WithinPath(real, rootReal) {
+		return "", errors.Wrapf(ErrInvalidServerConfig, "volume '%s': path %s escapes the volume", name, sub)
+	}
+	return real, nil
+}
+
+// cleanVolumePath returns a relative directory inside a volume.
+// An empty path mounts the volume root.
+func cleanVolumePath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" || path == "." {
+		return "", nil
+	}
+	if filepath.IsAbs(path) {
+		return "", errors.New("volume.path must be a relative directory inside the volume")
+	}
+	rel := filepath.ToSlash(filepath.Clean(path))
+	if rel == "." {
+		return "", nil
+	}
+	if rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") {
+		return "", errors.New("volume.path must stay inside the volume")
+	}
+	return rel, nil
 }
 
 // EnsureVolumes pulls artifact volumes the first time they are needed and
@@ -397,6 +515,9 @@ func validateVolumeSpec(v models.Volume) error {
 	}
 	if v.Artifact != "" && v.Mode == models.VolumeModeRW {
 		return errors.Wrapf(ErrInvalidServerConfig, "volume '%s': artifact volumes cannot use mode rw", name)
+	}
+	if _, err := cleanVolumePath(v.Path); err != nil {
+		return errors.Wrapf(ErrInvalidServerConfig, "volume '%s': %s", name, err.Error())
 	}
 	if v.Artifact != "" {
 		return nil

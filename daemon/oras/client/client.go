@@ -12,10 +12,8 @@ import (
 	"oras.land/oras-go/v2/registry/remote/credentials"
 	"oras.land/oras-go/v2/registry/remote/retry"
 	"protoxon.com/sls/daemon/config"
+	"protoxon.com/sls/internal/httpunix"
 )
-
-const DefaultRegistry = "docker.io"
-const DefaultNamespace = "library"
 
 // ProbeTimeout is the HTTP deadline for a create-time tag resolve.
 // The client does not retry, so a refused connection fails immediately.
@@ -44,9 +42,9 @@ func newRepository(reference string, httpClient *http.Client) (*remote.Repositor
 	}
 
 	repository.Reference.Reference = ref.Identifier()
-	if cfg := config.Get(); cfg != nil {
-		repository.PlainHTTP = cfg.System.UsePlainHTTP(ref.Context().RegistryStr())
-	}
+	registry := ref.Context().RegistryStr()
+	repository.PlainHTTP = usePlainHTTP(registry)
+	httpClient = peerHTTPClient(registry, httpClient)
 
 	store, err := NewCredentialStore()
 	if err != nil {
@@ -55,7 +53,7 @@ func newRepository(reference string, httpClient *http.Client) (*remote.Repositor
 
 	repository.Client = &auth.Client{
 		Client:     httpClient,
-		Cache:      auth.DefaultCache,
+		Cache:      auth.NewCache(),
 		Credential: credentials.Credential(store),
 		Header:     http.Header{"User-Agent": {"sls"}},
 	}
@@ -64,14 +62,72 @@ func newRepository(reference string, httpClient *http.Client) (*remote.Repositor
 }
 
 func ParseReference(artifact string) (name.Reference, error) {
-	return name.ParseReference(artifact, name.WithDefaultRegistry(DefaultRegistry), name.WithDefaultTag("latest"))
+	if !referenceNamesRegistry(artifact) {
+		return nil, errors.New("reference is missing a registry")
+	}
+	return name.ParseReference(artifact, name.WithDefaultTag("latest"))
+}
+
+// referenceNamesRegistry reports whether artifact includes a registry host.
+// A missing host must not fall through to name.ParseReference, which defaults
+// to Docker Hub.
+func referenceNamesRegistry(artifact string) bool {
+	ref := artifact
+	if i := strings.Index(ref, "@"); i >= 0 {
+		ref = ref[:i]
+	}
+	if i := strings.LastIndex(ref, ":"); i >= 0 && strings.LastIndex(ref, "/") < i {
+		ref = ref[:i]
+	}
+	first, rest, ok := strings.Cut(ref, "/")
+	if !ok || rest == "" {
+		return false
+	}
+	return first == "localhost" || strings.ContainsAny(first, ".:")
 }
 
 func repositoryName(ref name.Reference) string {
-	registry := ref.Context().RegistryStr()
-	repo := ref.Context().RepositoryStr()
-	if !strings.Contains(repo, "/") {
-		repo = DefaultNamespace + "/" + repo
+	return ref.Context().RegistryStr() + "/" + ref.Context().RepositoryStr()
+}
+
+// peerHTTPClient dials the controller API socket when registry is the host
+// in remote.url and remote.socket is enabled. Other registries keep httpClient.
+func peerHTTPClient(registry string, httpClient *http.Client) *http.Client {
+	socket := peerSocket(registry)
+	if socket == "" {
+		return httpClient
 	}
-	return registry + "/" + repo
+	var timeout time.Duration
+	if httpClient != nil {
+		timeout = httpClient.Timeout
+	}
+	return httpunix.Client(socket, timeout)
+}
+
+func peerSocket(registry string) string {
+	cfg := config.Get()
+	if cfg == nil {
+		return ""
+	}
+	socket := cfg.RemoteApi.Socket.ActivePath()
+	if socket == "" {
+		return ""
+	}
+	host := remoteRegistryHost(cfg.RemoteApi.Url)
+	if host == "" || !strings.EqualFold(host, NormalizeRegistryHost(registry)) {
+		return ""
+	}
+	return socket
+}
+
+func usePlainHTTP(registry string) bool {
+	if cfg := config.Get(); cfg != nil {
+		if cfg.System.UsePlainHTTP(registry) {
+			return true
+		}
+		if remoteRegistryPlainHTTP(cfg.RemoteApi.Url, registry) {
+			return true
+		}
+	}
+	return RegistryInsecure(registry)
 }

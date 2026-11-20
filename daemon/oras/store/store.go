@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,10 +16,12 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/errdef"
+	"oras.land/oras-go/v2/registry/remote"
+	"oras.land/oras-go/v2/registry/remote/errcode"
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/oras/client"
-	"protoxon.com/sls/daemon/oras/volume"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/volume"
 )
 
 const (
@@ -34,9 +37,12 @@ const (
 // ErrNotFound is returned when a volume reference does not exist in the registry.
 var ErrNotFound = system.ExpectedError(errors.NewPlain("volume reference not found"))
 
-// ErrResolve is returned when the registry cannot be reached or the reference
-// cannot be resolved (connection refused, timeout, and similar).
+// ErrResolve is returned when the registry cannot be reached (connection
+// refused, timeout, and similar) or responds with a server error.
 var ErrResolve = system.ExpectedError(errors.NewPlain("failed to resolve volume reference"))
+
+// ErrUnauthorized is returned when the registry rejects pull credentials.
+var ErrUnauthorized = system.ExpectedError(errors.NewPlain("registry authentication failed"))
 
 // IsRegistryUnavailable reports a tag resolve failure (missing or unreachable).
 func IsRegistryUnavailable(err error) bool {
@@ -51,16 +57,48 @@ type Result struct {
 	Cached       bool
 }
 
+const (
+	// CleanupNever keeps every cached digest tree.
+	CleanupNever = "never"
+	// CleanupUnused deletes a tree after CleanupPolicy.After with no server using it.
+	CleanupUnused = "unused"
+	// CleanupUnreferenced deletes a tree after CleanupPolicy.After when no
+	// blueprint names it and no server is using it.
+	CleanupUnreferenced = "unreferenced"
+)
+
+// CleanupPolicy is the idle-deletion rule for digest trees. The zero value
+// keeps every tree, matching CleanupNever.
+type CleanupPolicy struct {
+	Mode  string
+	After time.Duration
+}
+
 // Store is the daemon volume cache: CAS objects and digest trees.
 type Store struct {
 	Root string
 
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+	mu      sync.Mutex
+	locks   map[string]*sync.Mutex
+	cleanup CleanupPolicy
+	gcMu    sync.Mutex
 }
 
 func New(root string) *Store {
 	return &Store{Root: root, locks: map[string]*sync.Mutex{}}
+}
+
+// SetCleanup replaces the idle-deletion rule used by GC.
+func (s *Store) SetCleanup(p CleanupPolicy) {
+	s.mu.Lock()
+	s.cleanup = p
+	s.mu.Unlock()
+}
+
+func (s *Store) cleanupPolicy() CleanupPolicy {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cleanup
 }
 
 func (s *Store) CASRoot() string {
@@ -164,13 +202,9 @@ func (s *Store) tryLock(key string) (func(), bool) {
 
 // Ensure resolves reference and unpacks into digests/ if needed.
 func (s *Store) Ensure(ctx context.Context, reference string, copyFiles bool, logger *log.Entry) (Result, error) {
-	repository, err := client.NewRepository(reference)
+	repository, desc, err := resolveForPull(ctx, reference)
 	if err != nil {
 		return Result{}, err
-	}
-	desc, err := repository.Resolve(ctx, repository.Reference.Reference)
-	if err != nil {
-		return Result{}, wrapResolveErr(err)
 	}
 	path, fetched, cached, err := s.materialize(ctx, repository, desc, reference, copyFiles, logger)
 	if err != nil {
@@ -198,12 +232,46 @@ func (s *Store) Probe(ctx context.Context, reference string) error {
 		ctx, cancel = context.WithTimeout(ctx, ProbeTimeout)
 		defer cancel()
 	}
-	repository, err := client.NewProbeRepository(reference)
+	_, _, err := resolveWithAuthRetry(ctx, reference, client.NewProbeRepository)
+	return err
+}
+
+func resolveForPull(ctx context.Context, reference string) (*remote.Repository, ocispec.Descriptor, error) {
+	return resolveWithAuthRetry(ctx, reference, client.NewRepository)
+}
+
+func resolveWithAuthRetry(ctx context.Context, reference string, open func(string) (*remote.Repository, error)) (*remote.Repository, ocispec.Descriptor, error) {
+	repository, err := open(reference)
 	if err != nil {
-		return err
+		return nil, ocispec.Descriptor{}, err
 	}
-	_, err = repository.Resolve(ctx, repository.Reference.Reference)
-	return wrapResolveErr(err)
+	desc, err := repository.Resolve(ctx, repository.Reference.Reference)
+	if err == nil {
+		return repository, desc, nil
+	}
+	if !isUnauthorized(err) {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	if rerr := client.RefreshCredentials(ctx); rerr != nil {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	repository, err = open(reference)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, err
+	}
+	desc, err = repository.Resolve(ctx, repository.Reference.Reference)
+	if err != nil {
+		return nil, ocispec.Descriptor{}, wrapResolveErr(err)
+	}
+	return repository, desc, nil
+}
+
+func isUnauthorized(err error) bool {
+	var resp *errcode.ErrorResponse
+	if errors.As(err, &resp) && resp.StatusCode == http.StatusUnauthorized {
+		return true
+	}
+	return false
 }
 
 // EnsurePinned returns the digest tree without resolving a tag. If the tree is
@@ -346,10 +414,39 @@ func wrapResolveErr(err error) error {
 	if err == nil {
 		return nil
 	}
+	if isUnauthorized(err) {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, err)
+	}
 	if errors.Is(err, errdef.ErrNotFound) {
 		return errors.Wrap(ErrNotFound, err.Error())
 	}
+	// A registry HTTP response was received. Client errors stay attached so
+	// callers can return that status. They are not "registry unreachable".
+	if code, ok := responseStatus(err); ok && code >= http.StatusBadRequest && code < http.StatusInternalServerError {
+		return system.ExpectedError(fmt.Errorf("failed to resolve volume reference: %w", err))
+	}
 	return fmt.Errorf("%w: %w", ErrResolve, err)
+}
+
+func responseStatus(err error) (int, bool) {
+	var resp *errcode.ErrorResponse
+	if errors.As(err, &resp) && resp.StatusCode != 0 {
+		return resp.StatusCode, true
+	}
+	return 0, false
+}
+
+// RegistryStatus reports the HTTP status of a registry response preserved by
+// wrapResolveErr. Missing references stay ErrNotFound and are not reported here.
+func RegistryStatus(err error) (int, bool) {
+	if err == nil || errors.Is(err, ErrNotFound) {
+		return 0, false
+	}
+	code, ok := responseStatus(err)
+	if !ok || code < http.StatusBadRequest {
+		return 0, false
+	}
+	return code, true
 }
 
 func unpackOwner() *volume.Owner {

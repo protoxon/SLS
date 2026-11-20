@@ -13,10 +13,57 @@ import (
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/oras/store"
-	"protoxon.com/sls/daemon/oras/volume"
 	"protoxon.com/sls/daemon/server/filesystem"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/volume"
 )
+
+func TestResolveVolumeDirSubpath(t *testing.T) {
+	volumesRoot := t.TempDir()
+	config.Set(&config.Configuration{
+		System: config.SystemConfiguration{Volumes: volumesRoot},
+	})
+	t.Cleanup(func() { config.Set(nil) })
+	root := filepath.Join(volumesRoot, "worlds", "plugins")
+	sub := filepath.Join(root, "missile_wars")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "readme.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := resolveVolumeDir(models.Volume{
+		Name:   "plugins",
+		Source: "worlds/plugins",
+		Path:   "missile_wars",
+		Target: "/plugins",
+	}, volumesRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("mount dir %q, want %q", got, want)
+	}
+
+	if _, err := resolveVolumeDir(models.Volume{Name: "plugins", Source: "worlds/plugins", Path: "missing"}, volumesRoot); err == nil {
+		t.Fatal("missing path should fail")
+	}
+	if _, err := resolveVolumeDir(models.Volume{Name: "plugins", Source: "worlds/plugins", Path: "readme.txt"}, volumesRoot); err == nil {
+		t.Fatal("file path should fail")
+	}
+	if _, err := resolveVolumeDir(models.Volume{Name: "plugins", Source: "worlds/plugins", Path: "escape"}, volumesRoot); err == nil {
+		t.Fatal("symlink escape should fail")
+	}
+}
 
 func TestValidateVolumeSpec(t *testing.T) {
 	err := validateVolumeSpec(models.Volume{Artifact: "localhost:5000/world:latest", Mode: models.VolumeModeRW})
@@ -25,6 +72,12 @@ func TestValidateVolumeSpec(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidServerConfig) {
 		t.Fatalf("artifact rw should be invalid config: %v", err)
+	}
+	if err := validateVolumeSpec(models.Volume{Artifact: "localhost:5000/world:latest", Path: "../etc"}); err == nil {
+		t.Fatal("path escape")
+	}
+	if err := validateVolumeSpec(models.Volume{Artifact: "localhost:5000/plugins:latest", Path: "missile_wars", Mode: models.VolumeModeCOW}); err != nil {
+		t.Fatal(err)
 	}
 	if err := validateVolumeSpec(models.Volume{Artifact: "localhost:5000/world:latest", Source: "shared/data"}); err == nil {
 		t.Fatal("artifact and local source")
@@ -173,6 +226,7 @@ func TestInitVolumesWiresOnce(t *testing.T) {
 	config.Set(&config.Configuration{
 		System: config.SystemConfiguration{Volumes: volumesRoot},
 	})
+	t.Cleanup(func() { config.Set(nil) })
 	world := filepath.Join(volumesRoot, "worlds", "test")
 	if err := os.MkdirAll(world, 0o755); err != nil {
 		t.Fatal(err)
@@ -245,6 +299,7 @@ func TestConfigureMountsReplaceAndSort(t *testing.T) {
 	config.Set(&config.Configuration{
 		System: config.SystemConfiguration{Volumes: volumesRoot},
 	})
+	t.Cleanup(func() { config.Set(nil) })
 	world := filepath.Join(volumesRoot, "worlds", "test")
 	if err := os.MkdirAll(world, 0o755); err != nil {
 		t.Fatal(err)
@@ -495,12 +550,43 @@ func TestProbeVolumesFailsWhenMissing(t *testing.T) {
 	}
 }
 
-func TestProbeVolumesSkipsLocalOnly(t *testing.T) {
+func TestProbeVolumesAcceptsExistingLocal(t *testing.T) {
+	volumesRoot := t.TempDir()
+	config.Set(&config.Configuration{
+		System: config.SystemConfiguration{Volumes: volumesRoot},
+	})
+	t.Cleanup(func() { config.Set(nil) })
+	if err := os.MkdirAll(filepath.Join(volumesRoot, "shared", "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	s := &Server{
 		id:      "srv-probe-localonly",
 		volumes: []models.Volume{{Name: "data", Source: "shared/data", Target: "/data", Mode: models.VolumeModeRW}},
 	}
 	if err := s.probeVolumes(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestProbeVolumesFailsWhenLocalMissing(t *testing.T) {
+	config.Set(&config.Configuration{
+		System: config.SystemConfiguration{Volumes: t.TempDir()},
+	})
+	t.Cleanup(func() { config.Set(nil) })
+	s := &Server{
+		id: "srv-probe-local-missing",
+		volumes: []models.Volume{{
+			Name:   "world",
+			Source: "worlds/minigames/missile_wars",
+			Target: "/world",
+			Mode:   models.VolumeModeCOW,
+		}},
+	}
+	err := s.probeVolumes(context.Background())
+	if !errors.Is(err, ErrInvalidServerConfig) {
+		t.Fatalf("want ErrInvalidServerConfig, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "source path does not exist") {
+		t.Fatalf("error should name the missing source, got %v", err)
 	}
 }

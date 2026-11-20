@@ -112,17 +112,6 @@ func (s *Store) RememberOrigin(d digest.Digest, reference string) error {
 	return s.writeOrigin(d, o)
 }
 
-func originLookupKey(o Origin) string {
-	if o.Registry == "" || o.Repository == "" || o.Reference == "" || o.DigestPin {
-		return ""
-	}
-	repo := o.Repository
-	if !strings.Contains(repo, "/") {
-		repo = client.DefaultNamespace + "/" + repo
-	}
-	return strings.ToLower(o.Registry + "/" + repo + ":" + o.Reference)
-}
-
 // LatestLocal returns the newest digest tree previously pulled as reference.
 func (s *Store) LatestLocal(reference string) (Result, bool, error) {
 	o, err := originFromReference(reference)
@@ -136,7 +125,7 @@ func (s *Store) LatestLocal(reference string) (Result, bool, error) {
 		}
 		return s.localResult(d)
 	}
-	key := originLookupKey(o)
+	key := o.Key()
 	if key == "" {
 		return Result{}, false, nil
 	}
@@ -146,7 +135,7 @@ func (s *Store) LatestLocal(reference string) (Result, bool, error) {
 	}
 	var matches []digestTree
 	for _, tree := range trees {
-		if originLookupKey(tree.origin) == key {
+		if tree.origin.Key() == key {
 			matches = append(matches, tree)
 		}
 	}

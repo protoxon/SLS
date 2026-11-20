@@ -5,7 +5,7 @@ import (
 
 	"emperror.dev/errors"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"protoxon.com/sls/daemon/oras/volume"
+	"protoxon.com/sls/internal/volume"
 )
 
 // Pull fetches a volume artifact and merges it into dest by hashing files on
