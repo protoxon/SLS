@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/term"
 	"github.com/opencontainers/go-digest"
-	"protoxon.com/sls/daemon/oras/volume"
+	"protoxon.com/sls/internal/volume"
 )
 
 type charmPrinter struct {

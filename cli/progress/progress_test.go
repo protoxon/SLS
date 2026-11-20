@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/opencontainers/go-digest"
-	"protoxon.com/sls/daemon/oras/volume"
+	"protoxon.com/sls/internal/volume"
 )
 
 func TestBuildPrinterPushLayout(t *testing.T) {

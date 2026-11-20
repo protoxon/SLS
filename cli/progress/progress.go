@@ -10,7 +10,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/mattn/go-isatty"
 	"github.com/opencontainers/go-digest"
-	"protoxon.com/sls/daemon/oras/volume"
+	"protoxon.com/sls/internal/volume"
 )
 
 // Renderer prints pack/unpack progress to a writer.
