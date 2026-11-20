@@ -1,0 +1,21 @@
+uuid: {{.UUID}}
+debug: false
+
+api:
+  host: "127.0.0.1"
+  port: 5620
+  admin_socket: {{.Socket}}
+  tls:
+    enabled: false
+
+system:
+  root_directory: {{.Root}}
+  log_directory: {{.LogDirectory}}
+  blueprints: {{.Blueprints}}
+  software: {{.Software}}
+  plugins: {{.Plugins}}
+
+registry:
+  default: "127.0.0.1:5620"
+  insecure: true
+  storage: {{.Storage}}

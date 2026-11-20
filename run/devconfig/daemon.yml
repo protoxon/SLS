@@ -1,0 +1,27 @@
+uuid: {{.UUID}}
+debug: false
+name: local
+location: local
+
+remote:
+  url: "http://127.0.0.1:5620"
+  token: ""
+
+api:
+  url: "http://127.0.0.1:5585"
+  host: "127.0.0.1"
+  port: 5585
+  tls:
+    enabled: false
+
+system:
+  root_directory: {{.Root}}
+  log_directory: {{.LogDirectory}}
+  data: {{.Data}}
+  volumes: {{.Volumes}}
+  servers: {{.Servers}}
+  tmp_directory: {{.TmpDirectory}}
+  enable_log_rotate: false
+  user:
+    rootless:
+      enabled: true
