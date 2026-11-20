@@ -33,3 +33,10 @@ func Verify(key string) bool {
 	}
 	return subtle.ConstantTimeCompare([]byte(key), []byte(token)) == 1
 }
+
+// Token is the node bearer token. Console JWTs are signed with it.
+func Token() string {
+	tokenMu.RLock()
+	defer tokenMu.RUnlock()
+	return token
+}

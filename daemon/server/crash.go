@@ -65,7 +65,7 @@ func (s *Server) handleServerCrash() {
 		reason = "Server process was killed due to out of memory"
 	}
 
-	// Send crash report to protocube
+	// Send crash report to controller
 	crashData := remote.CrashData{
 		Reason:    reason,
 		ExitCode:  int32(exitCode),

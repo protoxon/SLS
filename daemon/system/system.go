@@ -15,6 +15,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/parsers/kernel"
 	"golang.org/x/sys/unix"
+	"protoxon.com/sls/internal/api"
+	"protoxon.com/sls/internal/version"
 )
 
 // DefaultTCPCC returns the default TCP congestion control algorithm on Linux.
@@ -45,49 +47,13 @@ func HasCapSysAdmin() (bool, error) {
 	return effective != 0, nil
 }
 
-type Information struct {
-	Version string            `json:"version"`
-	Docker  DockerInformation `json:"docker"`
-	System  System            `json:"system"`
-}
-
-type DockerInformation struct {
-	Version    string           `json:"version"`
-	Cgroups    DockerCgroups    `json:"cgroups"`
-	Containers DockerContainers `json:"containers"`
-	Storage    DockerStorage    `json:"storage"`
-	Runc       DockerRunc       `json:"runc"`
-}
-
-type DockerCgroups struct {
-	Driver  string `json:"driver"`
-	Version string `json:"version"`
-}
-
-type DockerContainers struct {
-	Total   int `json:"total"`
-	Running int `json:"running"`
-	Paused  int `json:"paused"`
-	Stopped int `json:"stopped"`
-}
-
-type DockerStorage struct {
-	Driver     string `json:"driver"`
-	Filesystem string `json:"filesystem"`
-}
-
-type DockerRunc struct {
-	Version string `json:"version"`
-}
-
-type System struct {
-	Architecture  string `json:"architecture"`
-	CPUThreads    int    `json:"cpu_threads"`
-	MemoryBytes   int64  `json:"memory_bytes"`
-	KernelVersion string `json:"kernel_version"`
-	OS            string `json:"os"`
-	OSType        string `json:"os_type"`
-}
+type Information = api.HostInformation
+type DockerInformation = api.DockerInformation
+type DockerCgroups = api.DockerCgroups
+type DockerContainers = api.DockerContainers
+type DockerStorage = api.DockerStorage
+type DockerRunc = api.DockerRunc
+type System = api.System
 
 func GetSystemInformation() (*Information, error) {
 	k, err := kernel.GetKernelVersion()
@@ -95,7 +61,7 @@ func GetSystemInformation() (*Information, error) {
 		return nil, err
 	}
 
-	version, info, err := GetDockerInfo(context.Background())
+	dockerVersion, info, err := GetDockerInfo(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -124,9 +90,9 @@ func GetSystemInformation() (*Information, error) {
 	}
 
 	return &Information{
-		Version: Version,
+		Version: version.Version,
 		Docker: DockerInformation{
-			Version: version.Version,
+			Version: dockerVersion.Version,
 			Cgroups: DockerCgroups{
 				Driver:  info.CgroupDriver,
 				Version: info.CgroupVersion,

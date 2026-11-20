@@ -26,17 +26,17 @@ import (
 )
 
 // Install executes the installation stack for a server process. Bubbles any
-// errors up to the calling function which should handle contacting protocube to
+// errors up to the calling function which should handle contacting controller to
 // notify it of the server state.
 //
 // Install runs the installation process. Pass a context with timeout (e.g. from
 // server.InstallLockTimeout) so the install can be aborted; when the context is
 // cancelled the install stops and callers should remove the server folder and release the lock.
 func (s *Server) Install(ctx context.Context) error {
-	return s.install(ctx, false)
+	return s.install(ctx)
 }
 
-func (s *Server) install(ctx context.Context, reinstall bool) error {
+func (s *Server) install(ctx context.Context) error {
 	if s.installLock == nil {
 		s.installLock = system.NewLocker()
 	}
@@ -49,9 +49,7 @@ func (s *Server) install(ctx context.Context, reinstall bool) error {
 	if !s.Config().SkipInstallScripts {
 		installerName := s.ID() + "_installer"
 		s.StartInstallPhase(InstallPhaseInstalling, installerName, installLogDiskPath(s.installLogBasePath(), ""))
-
-		// Send the start event so protocube can automatically update.
-		s.Events().Publish(InstallStartedEvent, "")
+		s.emitInstallPhase(InstallStatusInstalling, false)
 
 		err = s.internalInstall(ctx)
 	} else {
@@ -59,7 +57,7 @@ func (s *Server) install(ctx context.Context, reinstall bool) error {
 		s.FinishInstallPhase(InstallPhaseCompleted, "")
 	}
 
-	// Notify protocube of install state. On failure, do this in the background so we return
+	// Notify controller of install state. On failure, do this in the background so we return
 	// (and the caller can log the error) immediately instead of blocking on a slow/timeout HTTP call.
 	successful := err == nil
 	if successful {
@@ -71,25 +69,16 @@ func (s *Server) install(ctx context.Context, reinstall bool) error {
 			s.FinishInstallPhase(InstallPhaseInstallFailed, err.Error())
 		}
 	}
-	s.Log().WithField("was_successful", successful).Debug("notifying protocube of server install state")
-	notifyProtocube := func() {
-		if serr := s.SyncInstallState(successful, reinstall); serr != nil {
-			s.Log().WithField("was_successful", successful).WithField("error", serr).Warn("failed to notify protocube of server install state")
-		}
+	phase := InstallStatusCompleted
+	if !successful {
+		phase = InstallStatusFailed
 	}
-	if successful {
-		notifyProtocube()
-	} else {
-		go notifyProtocube()
-	}
+	s.Log().WithField("phase", phase).Debug("notifying controller of server install phase")
+	s.emitInstallPhase(phase, !successful)
 
 	// Ensure that the server is marked as offline at this point, otherwise you
 	// end up with a blank value which is a bit confusing.
 	s.Environment.SetState(environment.ProcessOfflineState)
-
-	// Push an event to the websocket, so we can auto-refresh the information in
-	// protocube once the installation is completed.
-	s.Events().Publish(InstallCompletedEvent, "")
 
 	return errors.WithStackIf(err)
 }
@@ -113,13 +102,13 @@ func (s *Server) Reinstall() error {
 
 	s.Log().Info("syncing server state with remote source before executing re-installation process")
 	if err := s.Sync(); err != nil {
-		return errors.WrapIf(err, "install: failed to sync server state with Protocube")
+		return errors.WrapIf(err, "install: failed to sync server state with Controller")
 	}
 
 	installCtx, cancel := context.WithTimeout(s.Context(), InstallLockTimeout)
 	defer cancel()
 
-	return s.install(installCtx, true)
+	return s.install(installCtx)
 }
 
 func (s *Server) sharedBasePath() string {
@@ -129,7 +118,7 @@ func (s *Server) sharedBasePath() string {
 	return filepath.Clean(s.Filesystem().Overlay().ServerPath)
 }
 
-// Internal installation function used to simplify reporting back to Protocube.
+// Internal installation function used to simplify reporting back to Controller.
 func (s *Server) internalInstall(ctx context.Context) error {
 	script, err := s.client.GetInstallationScript(ctx, s.ID())
 	if err != nil {
@@ -285,7 +274,10 @@ func (ip *InstallationProcess) pullInstallationImage() error {
 	pull := func() error {
 		pullCtx, cancelPull := context.WithTimeout(ip.installContext(), 15*time.Minute)
 		defer cancelPull()
-		return docker.PullImageWithOfflineFallback(pullCtx, ip.client, img, nil)
+		ip.Server.Events().Publish(InstallOutputEvent, "Pulling installation image "+img)
+		return docker.PullImageWithOfflineFallback(pullCtx, ip.client, img, func(status string) {
+			ip.Server.Events().Publish(InstallOutputEvent, status)
+		})
 	}
 
 	switch policy {
@@ -670,12 +662,26 @@ func (ip *InstallationProcess) resourceLimits() container.Resources {
 	return resources
 }
 
-// SyncInstallState makes an HTTP request to the Protocube instance notifying it that
-// the server has completed the installation process, and what the state of the
-// server is.
-func (s *Server) SyncInstallState(successful, reinstall bool) error {
-	return s.client.SetInstallationStatus(s.Context(), s.ID(), remote.InstallStatusRequest{
-		Successful: successful,
-		Reinstall:  reinstall,
-	})
+// SyncInstallState tells Controller the public install phase. It does not use
+// the server context so a failed phase still reaches Controller after a delete.
+func (s *Server) SyncInstallState(phase string) error {
+	ctx, cancel := notifyContext()
+	defer cancel()
+	return s.client.SetInstallationStatus(ctx, s.ID(), phase)
+}
+
+// emitInstallPhase publishes a public install phase on the server websocket and
+// reports it to Controller. A background notify does not block the caller.
+func (s *Server) emitInstallPhase(phase string, background bool) {
+	s.Events().Publish(InstallEvent, phase)
+	notify := func() {
+		if err := s.SyncInstallState(phase); err != nil {
+			s.Log().WithField("phase", phase).WithField("error", err).Warn("failed to notify controller of server install phase")
+		}
+	}
+	if background {
+		go notify()
+		return
+	}
+	notify()
 }

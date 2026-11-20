@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"protoxon.com/sls/daemon/models"
+	"protoxon.com/sls/internal/api"
 )
 
 const (
@@ -25,12 +26,25 @@ func (c *client) CrashReport(ctx context.Context, data CrashData, id string) err
 	return err
 }
 
-func (c *client) ServerDeleted(ctx context.Context, id string) error {
-	_, err := Post[d](c, ctx, "/internal/event/servers/"+id+"/deleted", nil)
+func (c *client) ServerDeleted(ctx context.Context, id, reason string) error {
+	_, err := Post[d](c, ctx, "/internal/event/servers/"+id+"/deleted", api.ServerDeleted{Reason: reason})
 	return err
 }
 
-// GetServers returns all the servers that are present on the Protocube that are part of this node making
+func (c *client) ReportSnapshot(ctx context.Context, ev api.SnapshotProgress) error {
+	_, err := Post[d](c, ctx, "/internal/snapshots/"+ev.ID, ev)
+	return err
+}
+
+func (c *client) ReportSnapshotIDs(ctx context.Context, ids []string) error {
+	if ids == nil {
+		ids = []string{}
+	}
+	_, err := Post[d](c, ctx, "/internal/snapshots", api.SnapshotIDs{IDs: ids})
+	return err
+}
+
+// GetServers returns all the servers that are present on the Controller that are part of this node making
 // parallel API calls to the endpoint if more than one page of servers is
 // returned.
 func (c *client) GetServers(ctx context.Context, limit int) ([]models.ServerConfiguration, error) {
@@ -63,7 +77,7 @@ func (c *client) GetServers(ctx context.Context, limit int) ([]models.ServerConf
 	return servers, nil
 }
 
-// getServersPaged returns a subset of servers from the Protocube API using the
+// getServersPaged returns a subset of servers from the Controller API using the
 // pagination query parameters.
 func (c *client) getServersPaged(ctx context.Context, page, limit int) ([]models.ServerConfiguration, Pagination, error) {
 	type r struct {

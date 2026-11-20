@@ -233,10 +233,35 @@ func (s *Server) installPhaseLogs(ctx context.Context, current InstallPhase, src
 	return readInstallLogsFromDocker(ctx, ownerID+"_installer", 0)
 }
 
+// IsInstalling reports whether an install, warmup, or post-warmup phase is active.
+func (s *Server) IsInstalling() bool {
+	switch s.installPhase() {
+	case InstallPhaseInstalling, InstallPhaseWarming, InstallPhasePostWarmup:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) installPhase() InstallPhase {
 	s.installState.mu.RLock()
 	defer s.installState.mu.RUnlock()
 	return s.installState.phase
+}
+
+// InstallEventPhase maps the internal install phase to the public websocket phase.
+// Idle returns an empty string so callers send nothing.
+func (s *Server) InstallEventPhase() string {
+	switch s.installPhase() {
+	case InstallPhaseInstalling, InstallPhaseWarming, InstallPhasePostWarmup:
+		return InstallStatusInstalling
+	case InstallPhaseCompleted:
+		return InstallStatusCompleted
+	case InstallPhaseInstallFailed, InstallPhaseWarmupFailed, InstallPhasePostWarmupFailed:
+		return InstallStatusFailed
+	default:
+		return ""
+	}
 }
 
 func (s *Server) enrichInstallInfoFromDocker(ctx context.Context, info *InstallInfo) {

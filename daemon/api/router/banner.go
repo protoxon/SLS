@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/version"
 )
 
 func postBanner(c *gin.Context) {
@@ -38,15 +38,15 @@ func postBanner(c *gin.Context) {
  |___/____|___/ <span class="light_blue">Copyright © 2022 - %d <span class="magenta">%s</span></span>
 
 <span class="light_blue">Website: </span><span class="reset">https://slimelabs.net</span>
-<span class="light_blue"> Source: </span><span class="reset">https://github.com/jessefaler/SLS</span>
-<span class="light_blue">License: </span><span class="reset">https://github.com/jessefaler/SLS/blob/main/LICENSE</span>
+<span class="light_blue"> Source: </span><span class="reset">https://github.com/protoxon/SLS</span>
+<span class="light_blue">License: </span><span class="reset">https://github.com/protoxon/SLS/blob/main/LICENSE</span>
 
 <span class="light_blue">This software is made available under the terms of the <span class="magenta">APGL-3.0</span> license.</span>
 <span class="light_blue">The above copyright notice and this permission notice shall be included</span>
 <span class="light_blue">in all copies or substantial portions of the Software.</span>
 </pre>
 </body>
-</html>`, system.Version, time.Now().Year(), system.Authors)
+</html>`, version.Version, time.Now().Year(), version.Authors)
 
 	c.Data(200, "text/html; charset=utf-8", []byte(html))
 }

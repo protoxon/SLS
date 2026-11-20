@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"emperror.dev/errors"
+	"github.com/apex/log"
 	"golang.org/x/sys/unix"
 )
 
@@ -51,11 +53,7 @@ func (o *Overlay) Mount() error {
 		return errors.Wrap(err, "failed to unmount existing overlay")
 	}
 
-	lower := strings.Join(o.Lower, ":")
-	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s,metacopy=on",
-		lower, o.Upper, o.Work)
-
-	if err := unix.Mount("overlay", o.Merged, "overlay", 0, opts); err != nil {
+	if err := o.mountLocked(); err != nil {
 		return errors.Wrapf(
 			err,
 			"failed to mount overlay (merged=%s, upper=%s, work=%s, lower=%v)",
@@ -69,24 +67,49 @@ func (o *Overlay) Mount() error {
 	return nil
 }
 
-// Unmount unmounts the overlay file system
-func (o *Overlay) Unmount() error {
-	o.Lock()
-	defer o.Unlock()
+// metacopyUnsupported is set once the kernel has rejected metacopy=on, as it
+// does in an unprivileged user namespace such as an unprivileged LXC.
+var metacopyUnsupported atomic.Bool
 
-	err := unix.Unmount(o.Merged, unix.MNT_DETACH)
-	if err != nil {
-		if err == unix.EINVAL || err == unix.ENOENT {
-			// Not mounted or path doesn't exist, ignore
-			return nil
-		}
-		return errors.Wrapf(err, "failed to unmount %s", o.Merged)
+// mountLocked mounts with metacopy=on when the kernel allows it. metacopy only
+// avoids copying file data on chmod/chown, so the overlay works without it.
+func (o *Overlay) mountLocked() error {
+	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s",
+		strings.Join(o.Lower, ":"), o.Upper, o.Work)
+	if metacopyUnsupported.Load() {
+		return mount(o.Merged, opts)
+	}
+	err := mount(o.Merged, opts+",metacopy=on")
+	if !errors.Is(err, unix.EINVAL) {
+		return err
+	}
+	if err := mount(o.Merged, opts); err != nil {
+		return err
+	}
+	if !metacopyUnsupported.Swap(true) {
+		log.WithField("merged", o.Merged).
+			Warn("kernel rejected overlay metacopy=on, mounting overlays without it")
 	}
 	return nil
 }
 
+// mount is replaced in tests.
+var mount = func(target, opts string) error {
+	return unix.Mount("overlay", target, "overlay", 0, opts)
+}
+
+// Unmount unmounts the overlay file system
+func (o *Overlay) Unmount() error {
+	o.Lock()
+	defer o.Unlock()
+	return o.unmountLocked()
+}
+
 // unmountLocked assumes the mutex is held
 func (o *Overlay) unmountLocked() error {
+	if !mountRoot(o.Merged) {
+		return nil
+	}
 	err := unix.Unmount(o.Merged, unix.MNT_DETACH)
 	if err != nil {
 		if err == unix.EINVAL || err == unix.ENOENT {
@@ -142,6 +165,20 @@ func (o *Overlay) validate() error {
 		}
 	}
 	return nil
+}
+
+// mountRoot reports whether path is the root of a mount. Unmounting a path
+// that is not mounted fails with EPERM without CAP_SYS_ADMIN, so callers skip
+// it. When the kernel cannot tell, it reports true and the unmount is tried.
+func mountRoot(path string) bool {
+	var stx unix.Statx_t
+	if err := unix.Statx(unix.AT_FDCWD, path, unix.AT_SYMLINK_NOFOLLOW, 0, &stx); err != nil {
+		return !errors.Is(err, unix.ENOENT)
+	}
+	if stx.Attributes_mask&unix.STATX_ATTR_MOUNT_ROOT == 0 {
+		return true
+	}
+	return stx.Attributes&unix.STATX_ATTR_MOUNT_ROOT != 0
 }
 
 func DirExists(path string) (bool, error) {

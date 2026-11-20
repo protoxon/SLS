@@ -6,12 +6,13 @@ import (
 )
 
 var (
-	ErrIsRunning = system.ExpectedError(errors.NewPlain("server is running"))
-	ErrIsPaused  = system.ExpectedError(errors.NewPlain("server is paused"))
-	ErrSuspended                = errors.New("server is currently in a suspended state")
+	ErrIsRunning                    = system.ExpectedError(errors.NewPlain("server is running"))
+	ErrIsPaused                     = system.ExpectedError(errors.NewPlain("server is paused"))
+	ErrSuspended                    = errors.New("server is currently in a suspended state")
 	ErrInvalidServerConfig          = errors.Sentinel("invalid server configuration")
 	ErrServerFolderNotFound         = errors.Sentinel("server folder not found")
 	ErrInstalledServerArtifactInUse = errors.New("servers are currently using the installed server artifact")
+	ErrSnapshotInProgress           = errors.Sentinel("snapshot in progress")
 )
 
 type crashTooFrequent struct{}
@@ -33,7 +34,6 @@ func (e *serverDoesNotExist) Error() string {
 }
 
 func IsServerDoesNotExistError(err error) bool {
-	_, ok := err.(*serverDoesNotExist)
-
-	return ok
+	var target *serverDoesNotExist
+	return errors.As(err, &target)
 }

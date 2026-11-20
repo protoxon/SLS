@@ -49,7 +49,7 @@ type Configuration struct {
 		Image string `json:"image,omitempty"`
 	} `json:"container,omitempty"`
 
-	// SoftwareVersion is the server's software version from protocube.
+	// SoftwareVersion is the server's software version from controller.
 	// Exposed as VERSION in the server and install container environment.
 	SoftwareVersion string `json:"software_version,omitempty"`
 }

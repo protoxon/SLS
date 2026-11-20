@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/registry"
+	"protoxon.com/sls/internal/api"
 )
 
 type dockerNetworkInterfaces struct {
@@ -160,35 +161,33 @@ type Overhead struct {
 	Multipliers map[int]float64 `json:"multipliers" yaml:"multipliers"`
 }
 
+// Policy is the overhead configuration Controller uses for admission.
+func (o Overhead) Policy() api.OverheadPolicy {
+	policy := api.OverheadPolicy{
+		Override:          o.Override,
+		DefaultMultiplier: o.DefaultMultiplier,
+	}
+	if policy.DefaultMultiplier <= 0 {
+		policy.DefaultMultiplier = 1.05
+	}
+	if len(o.Multipliers) == 0 {
+		return policy
+	}
+	keys := make([]int, 0, len(o.Multipliers))
+	for at := range o.Multipliers {
+		keys = append(keys, at)
+	}
+	sort.Ints(keys)
+	policy.Steps = make([]api.OverheadStep, 0, len(keys))
+	for _, at := range keys {
+		policy.Steps = append(policy.Steps, api.OverheadStep{
+			AtMB:       int64(at),
+			Multiplier: o.Multipliers[at],
+		})
+	}
+	return policy
+}
+
 func (o Overhead) GetMultiplier(memoryLimit int64) float64 {
-	// Default multiplier values.
-	if !o.Override {
-		if memoryLimit <= 2048 {
-			return 1.15
-		} else if memoryLimit <= 4096 {
-			return 1.10
-		}
-		return 1.05
-	}
-
-	// This plucks the keys of the Multipliers map, so they can be sorted from
-	// smallest to largest in order to correctly apply the proper multiplier.
-	i := 0
-	multipliers := make([]int, len(o.Multipliers))
-	for k := range o.Multipliers {
-		multipliers[i] = k
-		i++
-	}
-	sort.Ints(multipliers)
-
-	// Loop through the memory values in order (smallest to largest)
-	for _, m := range multipliers {
-		// If the server's memory limit exceeds the modifier's limit, don't apply it.
-		if memoryLimit > int64(m) {
-			continue
-		}
-		return o.Multipliers[m]
-	}
-
-	return o.DefaultMultiplier
+	return api.HardCapMultiplier(memoryLimit, o.Policy())
 }

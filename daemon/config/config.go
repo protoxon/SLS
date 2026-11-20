@@ -1,9 +1,10 @@
 package config
 
 import (
+	"bytes"
 	"crypto/tls"
+	_ "embed"
 	"fmt"
-	log2 "log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"text/template"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/acobaugh/osrelease"
@@ -21,11 +23,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/mitchellh/colorstring"
 	"golang.org/x/sys/unix"
-	"gopkg.in/yaml.v3"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/api"
+	"protoxon.com/sls/internal/configenv"
 )
 
 var Path = "/etc/sls/daemon/config.yml"
+
+//go:embed config.yml
+var defaultConfig []byte
 
 var (
 	mutex  sync.RWMutex   // protects concurrent access to the config
@@ -43,6 +49,9 @@ type Configuration struct {
 
 	Location string `yaml:"location" default:"main"`
 
+	// Scheduling is how Controller may place servers on this node.
+	Scheduling SchedulingConfiguration `yaml:"scheduling"`
+
 	Name string `yaml:"name" default:"SLS"`
 
 	System SystemConfiguration `yaml:"system"`
@@ -56,13 +65,13 @@ type Configuration struct {
 	// Defines messages throttling configurations for server processes.
 	Throttles ConsoleThrottles `json:"throttles" yaml:"throttles"`
 
-	// The remote api where the master is running that this daemon should connect too
+	// The remote api where the controller is running that this daemon should connect too
 	// to collect data and send events.
 	RemoteApi   RemoteApi                `json:"-" yaml:"remote"`
 	RemoteQuery RemoteQueryConfiguration `json:"remote_query" yaml:"remote_query"`
 
 	// AllowedOrigins is a list of allowed request origins.
-	// protocube URL is automatically allowed, this is only needed for adding
+	// controller URL is automatically allowed, this is only needed for adding
 	// additional origins.
 	AllowedOrigins []string `json:"allowed_origins" yaml:"allowed_origins"`
 
@@ -73,9 +82,48 @@ type Configuration struct {
 	AllowCORSPrivateNetwork bool `json:"allow_cors_private_network" yaml:"allow_cors_private_network"`
 }
 
+// SchedulingConfiguration is sent to Controller at registration.
+// Role standard is placed on first. Role overflow is used only when every
+// standard node was filtered out.
+type SchedulingConfiguration struct {
+	Role string `yaml:"role" default:"standard"`
+}
+
 type RemoteApi struct {
-	Url   string `json:"-" yaml:"url" default:"https://protocube.sls.net:5620"`
+	Url   string `json:"-" yaml:"url" default:"https://controller.sls.net:5620"`
 	Token string `json:"-" yaml:"token" default:"API_KEY"`
+	// Socket is the controller API socket. Enabled trusts this daemon as a local
+	// node, so Token can stay unset. Disabled means dial Url with a node token.
+	Socket Socket `json:"-" yaml:"socket"`
+}
+
+// DefaultAPISocket is this daemon's API socket path when config omits one.
+const DefaultAPISocket = "/var/lib/sls/run/daemon.sock"
+
+// DefaultRemoteSocket is the controller API socket path when config omits one.
+const DefaultRemoteSocket = "/var/lib/sls/run/controller.sock"
+
+// Socket is a Unix API listener or dial target.
+type Socket struct {
+	Enabled *bool  `yaml:"enabled" default:"false"`
+	Path    string `yaml:"path"`
+}
+
+// ActivePath is the socket path when this listener or dial target is enabled.
+func (s Socket) ActivePath() string {
+	if s.Enabled == nil || !*s.Enabled {
+		return ""
+	}
+	return strings.TrimSpace(s.Path)
+}
+
+// Enable turns the socket on at path.
+func (s *Socket) Enable(path string) {
+	on := true
+	s.Enabled = &on
+	if strings.TrimSpace(path) != "" {
+		s.Path = path
+	}
 }
 
 type ConsoleThrottles struct {
@@ -92,12 +140,7 @@ type ConsoleThrottles struct {
 	Period uint64 `json:"line_reset_interval" yaml:"line_reset_interval" default:"100"`
 }
 
-type Allocation struct {
-	Address         string `yaml:"address" default:"0.0.0.0"`
-	Alias           string `yaml:"alias" default:"127.0.0.1"`
-	ForceOutgoingIP bool   `yaml:"force_outgoing_ip"`
-	Ports           string `yaml:"ports" default:"40000-45000"`
-}
+type Allocation = api.Allocation
 
 // ApiConfiguration defines the configuration for the API server
 type ApiConfiguration struct {
@@ -109,12 +152,40 @@ type ApiConfiguration struct {
 	// The port that the daemon should bind to.
 	Port int `yaml:"port" default:"5585"`
 
+	// Listen is the TCP listener. Omitted means enabled. Unix sockets are unaffected.
+	Listen *bool `yaml:"listen" default:"true"`
+
+	// Socket is the API listener Controller dials. Disabled means Controller uses api.url.
+	Socket Socket `yaml:"socket"`
+
+	// ConsoleProxy reports whether clients open the server console through
+	// Controller. When false, clients dial this daemon directly. Omitted means proxied.
+	ConsoleProxy *bool `yaml:"console_proxy" default:"true"`
+
 	// TSL configuration for the daemon.
 	Tls struct {
 		Enabled         *bool  `yaml:"enabled" default:"true"`
 		CertificateFile string `json:"cert" yaml:"cert" default:"/etc/ssl/certs/sls.crt"`
 		KeyFile         string `json:"key" yaml:"key" default:"/etc/ssl/private/sls.key"`
 	}
+}
+
+// ListenEnabled reports whether the API binds a TCP listener.
+// A missing value means enabled.
+func (a ApiConfiguration) ListenEnabled() bool {
+	if a.Listen == nil {
+		return true
+	}
+	return *a.Listen
+}
+
+// ProxyConsole reports whether console clients should connect through Controller.
+// A missing value means proxied.
+func (a ApiConfiguration) ProxyConsole() bool {
+	if a.ConsoleProxy == nil {
+		return true
+	}
+	return *a.ConsoleProxy
 }
 
 // GetStatesPath returns the location of the JSON file that tracks server states.
@@ -229,8 +300,52 @@ type SystemConfiguration struct {
 	Data string `json:"-" yaml:"data" default:"/var/lib/sls/data"`
 	// Directory where state volumes are stored
 	Volumes string `json:"-" yaml:"volumes" default:"/var/lib/sls/volumes"`
+	// Volume is the artifact-cache cleanup policy for pulled volume trees.
+	Volume VolumeConfiguration `yaml:"volume"`
 	// Directory where installed servers are stored
 	Servers string `json:"-" yaml:"servers" default:"/var/lib/sls/servers"`
+	// Snapshots is the local cache of overlay snapshot lowerdirs.
+	Snapshots string `json:"-" yaml:"snapshots" default:"/var/lib/sls/snapshots"`
+}
+
+const (
+	VolumeCleanupNever        = "never"
+	VolumeCleanupUnused       = "unused"
+	VolumeCleanupUnreferenced = "unreferenced"
+)
+
+// VolumeConfiguration is the local artifact cache policy.
+type VolumeConfiguration struct {
+	Cleanup VolumeCleanupConfiguration `yaml:"cleanup"`
+}
+
+// VolumeCleanupConfiguration controls when unused pulled volume trees are deleted.
+// A copy a server is using is always kept. Local read-write directories are not
+// part of this cache.
+type VolumeCleanupConfiguration struct {
+	// Policy is never, unused, or unreferenced.
+	// never keeps every cached copy.
+	// unused deletes a copy after After with no server using it.
+	// unreferenced does that only when no blueprint names the artifact.
+	Policy string `yaml:"policy" default:"unreferenced"`
+	// After is how long an unused cache copy is kept.
+	// Suffixes: m minute, h hour, d day, w week, mo month (30d), y year (365d).
+	After         string        `yaml:"after" default:"1w"`
+	AfterDuration time.Duration `yaml:"-"`
+}
+
+func (c *VolumeCleanupConfiguration) prepare() error {
+	switch c.Policy {
+	case VolumeCleanupNever, VolumeCleanupUnused, VolumeCleanupUnreferenced:
+	default:
+		return errors.Errorf("volume.cleanup.policy must be never, unused, or unreferenced")
+	}
+	d, err := ParseDuration(c.After)
+	if err != nil {
+		return errors.Wrap(err, "volume.cleanup.after")
+	}
+	c.AfterDuration = d
+	return nil
 }
 
 // ConfigureDirectories ensures that all the system directories exist on the
@@ -273,6 +388,11 @@ func ConfigureDirectories() error {
 
 	log.WithField("path", config.System.Volumes).Debug("ensuring volumes directory exists")
 	if err := os.MkdirAll(config.System.Volumes, 0o700); err != nil {
+		return err
+	}
+
+	log.WithField("path", config.System.Snapshots).Debug("ensuring snapshots directory exists")
+	if err := os.MkdirAll(config.System.Snapshots, 0o700); err != nil {
 		return err
 	}
 
@@ -444,44 +564,130 @@ func UseOpenat2() bool {
 	}
 }
 
-// InitConfig Reads the configuration from the disk and then sets up the global singleton
-// with all the configuration values.
+// InitConfig reads the configuration from disk into the global singleton.
+// A missing file is an error. Create one with sls run daemon --init-config.
 func InitConfig() error {
-	var configPath = Path
-	if !filepath.IsAbs(configPath) {
-		absolutePath, err := filepath.Abs(configPath)
-		if err != nil {
-			log2.Fatalf("config/config: failed to get path to config file: %s", err)
-		}
-		configPath = absolutePath
-	}
-
-	// If config file doesn't exist, create it from embedded default
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		err := writeDefaultConfig(configPath)
-		if err != nil {
-			exitWithConfigurationNotice()
-		}
-		fmt.Printf(colorstring.Color(" [blue][bold]Created default config at: [reset]%s[reset]\n\n"), configPath)
-	}
-
-	err := loadConfigFromFile(configPath)
+	configPath, err := resolveConfigPath(Path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			exitWithConfigurationNotice()
+		return err
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		if os.IsNotExist(err) {
+			return &missingConfig{path: configPath}
 		}
-		log2.Fatalf("config/config: error while reading configuration file: %s", err)
+		return fmt.Errorf("configuration file %s: %w", configPath, err)
 	}
 
+	if err := loadConfigFromFile(configPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return &missingConfig{path: configPath}
+		}
+		return fmt.Errorf("read configuration file %s: %w", configPath, err)
+	}
 	if err = ConfigureDirectories(); err != nil {
 		return errors.Wrap(err, "config/config: Failed to configure directories")
 	}
 	return nil
 }
 
+// WriteDefaultConfig writes a new default daemon config at path.
+// An existing file is left unchanged.
+func WriteDefaultConfig(path string) (string, error) {
+	abs, err := resolveConfigPath(path)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(abs); err == nil {
+		return "", fmt.Errorf("configuration file already exists at %s", abs)
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("configuration file %s: %w", abs, err)
+	}
+	if err := writeDefaultConfig(abs); err != nil {
+		return "", fmt.Errorf("create default configuration at %s: %w", abs, err)
+	}
+	return abs, nil
+}
+
+func resolveConfigPath(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		path = Path
+	}
+	if !filepath.IsAbs(path) {
+		absolute, err := filepath.Abs(path)
+		if err != nil {
+			return "", fmt.Errorf("configuration file path: %w", err)
+		}
+		path = absolute
+	}
+	return path, nil
+}
+
+type missingConfig struct {
+	path string
+}
+
+func (e *missingConfig) Error() string {
+	return missingConfigNotice("SLS", e.path, "run daemon")
+}
+
+// ExitOnMissingConfig prints the configuration-file notice and exits when err
+// is a missing config file. command is the sls subcommand the user ran.
+// Other errors are left for the caller.
+func ExitOnMissingConfig(err error, command string) {
+	var missing *missingConfig
+	if !errorsAs(err, &missing) {
+		return
+	}
+	if strings.TrimSpace(command) == "" {
+		command = "run daemon"
+	}
+	fmt.Print(colorMissingConfig(missingConfigNotice("SLS", missing.path, command)))
+	os.Exit(1)
+}
+
+func errorsAs(err error, target **missingConfig) bool {
+	for err != nil {
+		if missing, ok := err.(*missingConfig); ok {
+			*target = missing
+			return true
+		}
+		unwrap, ok := err.(interface{ Unwrap() error })
+		if !ok {
+			return false
+		}
+		err = unwrap.Unwrap()
+	}
+	return false
+}
+
+func missingConfigNotice(subject, path, command string) string {
+	return fmt.Sprintf(`
+Error: Configuration File Not Found
+
+%s was not able to locate the configuration file, and therefore is not
+able to complete its boot process. Please ensure the configuration file 
+exists at the location below.
+
+Location: %s
+
+Create default config file with: sls %s --init-config
+`, subject, path, command)
+}
+
+func colorMissingConfig(notice string) string {
+	return strings.Replace(notice, "Error: Configuration File Not Found",
+		colorstring.Color("[_red_][white][bold]Error: Configuration File Not Found[reset]"), 1)
+}
+
 func applyDefaults(c *Configuration) error {
 	if err := defaults.Set(c); err != nil {
 		return err
+	}
+	if strings.TrimSpace(c.Api.Socket.Path) == "" {
+		c.Api.Socket.Path = DefaultAPISocket
+	}
+	if strings.TrimSpace(c.RemoteApi.Socket.Path) == "" {
+		c.RemoteApi.Socket.Path = DefaultRemoteSocket
 	}
 
 	// If no allocations are defined, create a default one
@@ -498,24 +704,24 @@ func applyDefaults(c *Configuration) error {
 }
 
 // RemoteQueryConfiguration defines the configuration settings for remote requests
-// from the daemon1 to the Protocube.
+// from the daemon1 to the Controller.
 type RemoteQueryConfiguration struct {
-	// The amount of time in seconds that the daemon should allow for a request to the Protocube API
+	// The amount of time in seconds that the daemon should allow for a request to the Controller API
 	// to complete. If this time passes the request will be marked as failed. If your requests
 	// are taking longer than 30 seconds to complete it is likely a performance issue that
-	// should be resolved on Protocube, and not something that should be resolved by upping this
+	// should be resolved on Controller, and not something that should be resolved by upping this
 	// number.
 	Timeout int `yaml:"timeout" default:"30"`
 
-	// The number of servers to load in a single request to protocube API when booting the
-	// Daemon instance. A single request is initially made to Protocube to get this number
+	// The number of servers to load in a single request to controller API when booting the
+	// Daemon instance. A single request is initially made to Controller to get this number
 	// of servers, and then the pagination status is checked and additional requests are
 	// fired off in parallel to request the remaining pages.
 	//
 	// It is not recommended to change this from the default as you will likely encounter
-	// memory limits on your Protocube instance. In the grand scheme of things 4 requests for
+	// memory limits on your Controller instance. In the grand scheme of things 4 requests for
 	// 50 servers is likely just as quick as two for 100 or one for 400, and will certainly
-	// be less likely to cause performance issues on Protocube.
+	// be less likely to cause performance issues on Controller.
 	BootServersPerPage int `yaml:"boot_servers_per_page" default:"50"`
 }
 
@@ -529,7 +735,7 @@ func loadConfigFromFile(path string) error {
 	var config Configuration
 
 	// Decode the contents of the yml into the config struct
-	if err := yaml.Unmarshal(bytes, &config); err != nil {
+	if err := configenv.Unmarshal(bytes, &config); err != nil {
 		return err
 	}
 
@@ -546,6 +752,9 @@ func loadConfigFromFile(path string) error {
 
 	if err := ValidateImagePullPolicy(&config.Docker); err != nil {
 		return errors.Wrap(err, "config: invalid docker settings")
+	}
+	if err := config.System.Volume.Cleanup.prepare(); err != nil {
+		return errors.Wrap(err, "config: invalid volume cleanup")
 	}
 
 	// Store this configuration in the global state.
@@ -568,36 +777,24 @@ func Get() *Configuration {
 }
 
 func writeDefaultConfig(path string) error {
-	// Ensure parent directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-
-	var c Configuration
-	if err := applyDefaults(&c); err != nil {
-		return err
-	}
-	c.Uuid = uuid.New().String()
-
-	out, err := yaml.Marshal(&c)
+	body, err := renderDefaultConfig()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, out, 0o644)
+	return os.WriteFile(path, body, 0o644)
 }
 
-func exitWithConfigurationNotice() {
-	fmt.Printf(colorstring.Color(`
-[_red_][white][bold]Error: Configuration File Not Found[reset]
-
-SLS was not able to locate the configuration file, and therefore is not
-able to complete its boot process. Please ensure the configuration file 
-exists at the location below.
-
-Location: %s[reset]
-
-`), Path)
-	os.Exit(1)
+// renderDefaultConfig is the embedded config.yml with a new node id.
+func renderDefaultConfig() ([]byte, error) {
+	const placeholder = `uuid: ""`
+	if !bytes.Contains(defaultConfig, []byte(placeholder)) {
+		return nil, fmt.Errorf("default config is missing the uuid placeholder")
+	}
+	id := uuid.New().String()
+	return bytes.Replace(defaultConfig, []byte(placeholder), []byte("uuid: "+id), 1), nil
 }
 
 // GetTLSConfig builds the TLS config for the API server from the certificate

@@ -74,7 +74,7 @@ func (f *ConfigurationFile) IterateOverJson(data []byte) (*gabs.Container, error
 			// If the child is a null value, nothing will happen. Seems reasonable as of the
 			// time this code is being written.
 			for _, child := range parsed.Path(strings.Trim(parts[0], ".")).Children() {
-				if err := v.SetAtPathway(child, strings.Trim(parts[1], "."), value); err != nil {
+				if err := setAtPathway(&v, child, strings.Trim(parts[1], "."), value); err != nil {
 					if errors.Is(err, gabs.ErrNotFound) {
 						continue
 					}
@@ -84,7 +84,7 @@ func (f *ConfigurationFile) IterateOverJson(data []byte) (*gabs.Container, error
 			continue
 		}
 
-		if err := v.SetAtPathway(parsed, v.Match, value); err != nil {
+		if err := setAtPathway(&v, parsed, v.Match, value); err != nil {
 			if errors.Is(err, gabs.ErrNotFound) {
 				continue
 			}
@@ -169,7 +169,7 @@ func setValueAtPath(c *gabs.Container, path string, value interface{}) error {
 
 // Sets the value at a specific pathway, but checks if we were looking for a specific
 // value or not before doing it.
-func (cfr *ConfigurationFileReplacement) SetAtPathway(c *gabs.Container, path string, value interface{}) error {
+func setAtPathway(cfr *ConfigurationFileReplacement, c *gabs.Container, path string, value interface{}) error {
 	if cfr.IfValue == "" {
 		return setValueAtPath(c, path, value)
 	}

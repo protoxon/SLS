@@ -3,9 +3,11 @@ package remote
 import (
 	"time"
 
-	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/environment"
+	"protoxon.com/sls/internal/api"
 )
+
+type NodeRegistration = api.NodeRegistration
 
 // A generic type allowing for easy binding use when making requests to API
 // endpoints that only expect a singular argument or something that would not
@@ -34,20 +36,6 @@ type CreateServerRequest struct {
 
 type CreateServerResponse struct {
 	ID string `json:"id"`
-}
-
-type NodeRegistration struct {
-	Id          string              `json:"id"`
-	Name        string              `json:"name"`
-	Location    string              `json:"location"`
-	Url         string              `json:"url"`
-	Version     string              `json:"version"`
-	Allocations []config.Allocation `json:"allocations"`
-}
-
-type InstallStatusRequest struct {
-	Successful bool `json:"successful"`
-	Reinstall  bool `json:"reinstall"`
 }
 
 // InstallationScript defines installation script information for a server

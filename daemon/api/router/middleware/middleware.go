@@ -9,9 +9,9 @@ import (
 	"github.com/apex/log"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"protoxon.com/sls/daemon/api/router/httperror"
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/server"
+	"protoxon.com/sls/internal/httperror"
 )
 
 // AttachRequestID attaches a unique ID to the incoming HTTP request so that any
@@ -93,7 +93,7 @@ func SetAccessControlHeaders() gin.HandlerFunc {
 		// Validate that the request origin is coming from an allowed origin. Because you
 		// cannot set multiple values here we need to see if the origin is one of the ones
 		// that we allow, and if so return it explicitly. Otherwise, just return the default
-		// origin which is the same URL that protocube is located at.
+		// origin which is the same URL that controller is located at.
 		origin := c.GetHeader("Origin")
 		if origin != location {
 			for _, o := range origins {
@@ -113,25 +113,60 @@ func SetAccessControlHeaders() gin.HandlerFunc {
 }
 
 // ServerExists will ensure that the requested server exists in this setup.
-// Returns a 404 if we cannot locate it. If the server is found it is set into
-// the request context, and the logger for the context is also updated to include
+// Returns a 404 if we cannot locate it, or a 409 with the load error if it
+// failed to load during sync. If the server is found it is set into the
+// request context, and the logger for the context is also updated to include
 // the server ID in the fields list.
 func ServerExists(manager *server.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var s *server.Server
-		if c.Param("server") != "" {
-			s = manager.Find(func(s *server.Server) bool {
-				return c.Param("server") == s.ID()
-			})
-		}
+		s := findServer(manager, c.Param("server"))
 		if s == nil {
-			httperror.AbortWithJSON(c, http.StatusNotFound, "resource not found", "The requested resource does not exist on this instance.")
+			abortServerMissing(c, manager)
 			return
 		}
-		c.Set("logger", ExtractLogger(c).WithField("server_id", s.ID()))
-		c.Set("server", s)
+		setServer(c, s)
 		c.Next()
 	}
+}
+
+// ServerForDelete is ServerExists for the delete route. A server that failed
+// to load during sync is loaded without the checks needed to run it, so its
+// container and files can still be removed.
+func ServerForDelete(manager *server.Manager) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("server")
+		s := findServer(manager, id)
+		if s == nil && id != "" {
+			s, _ = manager.LoadForDelete(c.Request.Context(), id)
+		}
+		if s == nil {
+			abortServerMissing(c, manager)
+			return
+		}
+		setServer(c, s)
+		c.Next()
+	}
+}
+
+func findServer(manager *server.Manager, id string) *server.Server {
+	if id == "" {
+		return nil
+	}
+	s, _ := manager.Get(id)
+	return s
+}
+
+func abortServerMissing(c *gin.Context, manager *server.Manager) {
+	if err := manager.LoadError(c.Param("server")); err != nil {
+		httperror.AbortWithJSON(c, http.StatusConflict, err.Error(), "The server failed to load on this node.")
+		return
+	}
+	httperror.AbortWithJSON(c, http.StatusNotFound, "resource not found", "The requested resource does not exist on this instance.")
+}
+
+func setServer(c *gin.Context, s *server.Server) {
+	c.Set("logger", ExtractLogger(c).WithField("server_id", s.ID()))
+	c.Set("server", s)
 }
 
 // RequireAuthorization authenticates the request using the verification function.

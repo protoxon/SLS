@@ -1,0 +1,173 @@
+# Any value may use ${NAME} to read an environment variable, for example
+# token: ${SLS_TOKEN}. An unset variable stops startup. Write $${ for a
+# literal ${.
+
+# Generated id for this node. Filled in when the file is created.
+uuid: ""
+debug: false
+name: "SLS"
+location: "main"
+
+# standard nodes are filled first. overflow is used only when every standard
+# node fails a placement check.
+scheduling:
+  role: standard
+
+# Extra browser origins allowed to call the daemon API. The controller URL is
+# already allowed.
+allowed_origins: []
+
+# Lets browsers call this API on a private IP over plain HTTP. Leave false
+# unless you serve the API without TLS on a private address.
+allow_cors_private_network: false
+
+remote:
+  url: "https://controller.sls.net:5620"
+  token: "API_KEY"
+  # Controller API socket. Enabled trusts this daemon as a local node, so
+  # remote.token can stay unset. Disabled means dial remote.url with a node token.
+  # sls run turns this on in memory when the controller and daemon share a process.
+  socket:
+    enabled: false
+    path: /var/lib/sls/run/controller.sock
+
+remote_query:
+  timeout: 30
+  boot_servers_per_page: 50
+
+api:
+  url: "https://daemon.sls.net:5585"
+  host: "0.0.0.0"
+  port: 5585
+  # TCP listener. false leaves only the Unix socket.
+  listen: true
+  # Socket the controller dials for this daemon. Disabled means the controller uses api.url.
+  # sls run turns this on in memory when the controller and daemon share a process.
+  socket:
+    enabled: false
+    path: /var/lib/sls/run/daemon.sock
+  # true: clients open the console through the controller.
+  # false: clients dial this daemon directly.
+  console_proxy: true
+  tls:
+    enabled: true
+    cert: "/etc/ssl/certs/sls.crt"
+    key: "/etc/ssl/private/sls.key"
+
+system:
+  root_directory: "/var/lib/sls"
+  log_directory: "/var/log/sls"
+  data: "/var/lib/sls/data"
+  volumes: "/var/lib/sls/volumes"
+  servers: "/var/lib/sls/servers"
+  tmp_directory: "/tmp/sls/daemon"
+  timezone: ""
+  username: "sls"
+  # Host paths that servers may bind into containers. A custom mount must live
+  # under one of these directories.
+  allowed_mounts: []
+  # Registry host or host:port contacted over HTTP instead of HTTPS.
+  # A host with no port matches every port on that host.
+  insecure_registries: []
+  # Writes /etc/logrotate.d/sls on boot when logrotate is installed and the
+  # file is missing.
+  enable_log_rotate: true
+  # Seconds before a server disk-usage check is stale. 0 disables the check
+  # and reports 0 bytes used.
+  disk_check_interval: 150
+  # openat2, openat, or auto (probe the kernel).
+  openat_mode: "auto"
+  user:
+    # uid and gid are replaced with the system user's ids when that user exists.
+    uid: 988
+    gid: 988
+    rootless:
+      enabled: false
+      # User inside the container. 0 runs as the daemon user.
+      container_uid: 0
+      container_gid: 0
+  volume:
+    cleanup:
+      # never: keep every cached copy.
+      # unused: delete a copy after `after` with no server using it.
+      # unreferenced: same, and only when no blueprint names the artifact.
+      # A copy a server is using is always kept.
+      policy: "unreferenced"
+      # Suffixes: m minute, h hour, d day, w week, mo month (30d), y year (365d).
+      after: "1w"
+
+# Port pool registered with the controller.
+allocations:
+  - address: "0.0.0.0"
+    alias: "127.0.0.1"
+    force_outgoing_ip: false
+    ports: "40000-45000"
+
+throttles:
+  enabled: true
+  lines: 2000
+  # Milliseconds before the line count resets.
+  line_reset_interval: 100
+
+docker:
+  network:
+    interface: "172.60.0.1"
+    dns:
+      - "1.1.1.1"
+      - "1.0.0.1"
+    name: "sls"
+    # True for overlay-style networks that do not publish ports on this host.
+    ispn: false
+    driver: "bridge"
+    # sls uses the daemon network. host uses the host network.
+    network_mode: "sls"
+    is_internal: false
+    # Bridge inter-container communication.
+    enable_icc: true
+    network_mtu: 1500
+    interfaces:
+      v4:
+        subnet: "172.60.0.0/16"
+        gateway: "172.60.0.1"
+      v6:
+        subnet: "fdba:17c8:6c94::/64"
+        gateway: "fdba:17c8:6c94::1011"
+  domainname: ""
+  # Pull credentials for registries other than the controller.
+  #
+  # registries:
+  #   ghcr.io:
+  #     username: user
+  #     password: "ghp_..."
+  registries: {}
+  # Host memory, in MB, for each container's /tmp. This is not counted against
+  # the server's disk limit.
+  tmpfs_size: 100
+  container_pid_limit: 512
+  installer_limits:
+    memory: 4096
+    cpu: 200
+  overhead:
+    # false uses the built-in multipliers: 1.15 under 2048 MB, 1.10 under 4096 MB,
+    # otherwise default_multiplier.
+    override: false
+    default_multiplier: 1.05
+    # multipliers:
+    #   2048: 1.15
+    #   4096: 1.10
+    multipliers: {}
+  use_performant_inspect: true
+  # Blank uses the daemon's user-namespace remapping. host disables it.
+  userns_mode: ""
+  log_config:
+    type: "local"
+    config:
+      max-size: "5m"
+      max-file: "1"
+      compress: "false"
+      mode: "non-blocking"
+  # Always, IfNotPresent, Never, or Schedule.
+  # Schedule pulls when the image is missing and again on image_pull_schedule.
+  image_pull_policy: "Schedule"
+  # Five-field cron. Used when image_pull_policy is Schedule.
+  image_pull_schedule: "0 1 1 * *"

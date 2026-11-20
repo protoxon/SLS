@@ -8,15 +8,14 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
 	"github.com/cenkalti/backoff/v4"
-	"protoxon.com/sls/daemon/api/router/httperror"
 	"protoxon.com/sls/daemon/config"
-	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/httperror"
+	"protoxon.com/sls/internal/version"
 )
 
 type Requests interface {
@@ -26,7 +25,7 @@ type Requests interface {
 
 // Post sends a POST request using the provided client,
 // with the given context, path, and data.
-// The path is prepended with protocube's node api endpoint /api/nodes/{nodeId}
+// The path is prepended with controller's node api endpoint /api/nodes/{nodeId}
 // It then unmarshal's the JSON response into the specified type T.
 // Returns the result and any error encountered during the process.
 func Post[T any](request Requests, ctx context.Context, path string, data interface{}) (T, error) {
@@ -47,7 +46,7 @@ func Post[T any](request Requests, ctx context.Context, path string, data interf
 
 // Get sends a GET request using the provided client,
 // with the given context, path, and query parameters.
-// The path is prepended with protocube's node api endpoint /api/nodes/{nodeId}
+// The path is prepended with controller's node api endpoint /api/nodes/{nodeId}
 // It then unmarshal's the JSON response into the specified type T.
 // Returns the result and any error encountered during the process.
 func Get[T any](client Requests, ctx context.Context, path string, query q) (T, error) {
@@ -95,7 +94,7 @@ func (c *client) requestOnce(ctx context.Context, method, path string, body io.R
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", fmt.Sprintf("SLS/v%s (id:%s)", system.Version, config.Get().Uuid))
+	req.Header.Set("User-Agent", fmt.Sprintf("SLS/v%s (id:%s)", version.Version, config.Get().Uuid))
 	req.Header.Set("Accept", "application/vnd.sls.v1+json")
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
@@ -111,9 +110,9 @@ func (c *client) requestOnce(ctx context.Context, method, path string, body io.R
 	return &Response{res}, err
 }
 
-// request executes an HTTP request against the Protocube API. If there is an error
+// request executes an HTTP request against the Controller API. If there is an error
 // encountered with the request it will be retried using an exponential backoff.
-// If the error returned from Protocube is due to API throttling or because there
+// If the error returned from Controller is due to API throttling or because there
 // are invalid authentication credentials provided the request will _not_ be
 // retried by the backoff.
 //
@@ -193,26 +192,10 @@ func isUnregistered(resp *Response) bool {
 		if err := json.Unmarshal(body, &apiErr); err != nil {
 			return false
 		}
-		if apiErr.Detail == "Unregistered" {
+		if apiErr.Detail == httperror.DetailUnregistered {
 			return true
 		}
 	}
-
-	// Also check for 404 Not Found on node-specific routes, as this indicates
-	// the node doesn't exist and needs to be registered
-	if resp.StatusCode == http.StatusNotFound {
-		// Check if the request path contains "/api/nodes/" which indicates
-		// this is a node-specific route that requires the node to exist
-		if resp.Request != nil && resp.Request.URL != nil {
-			path := resp.Request.URL.Path
-			// If it's a 404 on a node route (but not the register route itself),
-			// treat it as unregistered
-			if strings.Contains(path, "/api/nodes/") && !strings.Contains(path, "/register") {
-				return true
-			}
-		}
-	}
-
 	return false
 }
 
@@ -221,7 +204,7 @@ func isUnregistered(resp *Response) bool {
 // before it is finally reported back as an error.
 //
 // This allows for issues with DNS resolution, or rare race conditions due to
-// slower SQL queries on protocube to potentially self-resolve without just
+// slower SQL queries on controller to potentially self-resolve without just
 // immediately failing the first request. The example below shows the amount of
 // time that has elapsed between each call to the handler when an error is
 // returned. You can tweak these values as needed to get the effect you desire.
@@ -250,7 +233,7 @@ func (c *client) backoff(ctx context.Context) backoff.BackOffContext {
 }
 
 // Response is a custom response type that allows for commonly used error
-// handling and response parsing from protocube API. This just embeds the normal
+// handling and response parsing from controller API. This just embeds the normal
 // HTTP response from Go and we attach a few helper functions to it.
 type Response struct {
 	*http.Response

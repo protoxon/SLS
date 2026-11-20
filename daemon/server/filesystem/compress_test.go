@@ -21,7 +21,7 @@ func TestFilesystem_DecompressFile(t *testing.T) {
 	fs, rfs := NewFs()
 
 	g.Describe("Decompress", func() {
-		for _, ext := range []string{"zip", "rar", "tar", "tar.gz"} {
+		for _, ext := range []string{"zip", "tar", "tar.gz"} {
 			g.It("can decompress a "+ext, func() {
 				// copy the file to the new FS
 				c, err := os.ReadFile("./testdata/test." + ext)

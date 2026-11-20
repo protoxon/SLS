@@ -9,9 +9,10 @@ import (
 
 	"github.com/apex/log"
 	"protoxon.com/sls/daemon/environment"
-	"protoxon.com/sls/daemon/events"
 	"protoxon.com/sls/daemon/remote"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/events"
+	"protoxon.com/sls/internal/stats"
 )
 
 type diskSpaceLimiter struct {
@@ -88,15 +89,15 @@ func (s *Server) StartEventListeners() {
 					switch e.Topic {
 					case environment.ResourceEvent:
 						{
-							var stats struct {
+							var sample struct {
 								Topic string
-								Data  environment.Stats
+								Data  stats.Stats
 							}
-							if err := events.DecodeTo(v, &stats); err != nil {
+							if err := events.DecodeTo(v, &sample); err != nil {
 								s.Log().WithField("error", err).Warn("failed to decode server resource event")
 								return
 							}
-							s.resources.UpdateStats(stats.Data)
+							s.resources.UpdateStats(sample.Data)
 							s.Events().Publish(StatsEvent, s.Proc())
 
 							// Check disk space limit if server is running and has a disk limit configured

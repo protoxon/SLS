@@ -6,6 +6,7 @@ import (
 
 	"github.com/gammazero/workerpool"
 	"protoxon.com/sls/daemon/internal/ufs"
+	"protoxon.com/sls/daemon/parser"
 )
 
 // buildServerDataJSON creates a JSON structure containing server information
@@ -55,7 +56,7 @@ func (s *Server) UpdateConfigurationFiles() {
 	}
 
 	for _, cf := range files {
-		f := cf
+		f := parser.ConfigurationFile{ConfigurationFile: cf}
 
 		pool.Submit(func() {
 			file, err := s.Filesystem().UnixFS().Touch(f.FileName, ufs.O_RDWR|ufs.O_CREATE, 0o644)

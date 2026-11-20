@@ -8,8 +8,8 @@ import (
 	"emperror.dev/errors"
 	"github.com/apex/log"
 	"github.com/gin-gonic/gin"
-	"protoxon.com/sls/daemon/api/router/httperror"
 	"protoxon.com/sls/daemon/server"
+	"protoxon.com/sls/internal/httperror"
 )
 
 // RequestError is a custom error type returned when something goes wrong with

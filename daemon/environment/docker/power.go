@@ -15,7 +15,7 @@ import (
 )
 
 // OnBeforeStart run before the container starts and get the process
-// configuration from protocube. This is important since we use this to check
+// configuration from controller. This is important since we use this to check
 // configuration files as well as ensure we always have the latest version of
 // an egg available for server processes.
 //
@@ -23,7 +23,7 @@ import (
 // a bootable state. This ensures that unexpected container deletion while the daemon
 // is running does not result in the server becoming un-bootable.
 func (e *Environment) OnBeforeStart(ctx context.Context) error {
-	// Always destroy and re-create the server container to ensure that synced data from protocube is used.
+	// Always destroy and re-create the server container to ensure that synced data from controller is used.
 	if err := e.client.ContainerRemove(ctx, e.Id, container.RemoveOptions{RemoveVolumes: true}); err != nil {
 		if !client.IsErrNotFound(err) {
 			return errors.WrapIf(err, "environment/docker: failed to remove container during pre-boot")

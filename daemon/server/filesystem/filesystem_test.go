@@ -18,7 +18,7 @@ import (
 )
 
 func NewFs() (*Filesystem, *rootFs) {
-	config.Set(&config.Configuration{
+	cfg := &config.Configuration{
 		System: config.SystemConfiguration{
 			RootDirectory:     "/server",
 			DiskCheckInterval: 150,
@@ -27,7 +27,10 @@ func NewFs() (*Filesystem, *rootFs) {
 			Url:   "",
 			Token: "abc",
 		},
-	})
+	}
+	cfg.System.User.Uid = os.Getuid()
+	cfg.System.User.Gid = os.Getgid()
+	config.Set(cfg)
 
 	tmpDir, err := os.MkdirTemp(os.TempDir(), "sls")
 	if err != nil {

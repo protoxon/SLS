@@ -13,14 +13,14 @@ import (
 	"github.com/docker/docker/client"
 	"golang.org/x/sys/unix"
 	"protoxon.com/sls/daemon/environment"
-	"protoxon.com/sls/daemon/events"
-	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/events"
+	"protoxon.com/sls/internal/process"
 )
 
 type Metadata struct {
 	Image string
-	Stop  models.ProcessStopConfiguration
+	Stop  process.ProcessStopConfiguration
 }
 
 // Ensure that the Docker environment is always implementing all the methods
@@ -56,6 +56,11 @@ type Environment struct {
 
 	// Tracks the environment state.
 	st *system.AtomicString
+
+	cgroupMu   sync.Mutex
+	cgroupPath string
+	cpuLast    uint64
+	cgroupWarn bool
 }
 
 // New creates a new base Docker environment. The ID passed through will be the
@@ -169,7 +174,7 @@ func (e *Environment) Config() *environment.Configuration {
 }
 
 // SetStopConfiguration sets the stop configuration for the environment.
-func (e *Environment) SetStopConfiguration(c models.ProcessStopConfiguration) {
+func (e *Environment) SetStopConfiguration(c process.ProcessStopConfiguration) {
 	e.mu.Lock()
 	e.meta.Stop = c
 	e.mu.Unlock()

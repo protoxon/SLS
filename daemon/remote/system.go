@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-func (c *client) SetInstallationStatus(ctx context.Context, uuid string, data InstallStatusRequest) error {
-	_, err := Post[d](c, ctx, "/internal/event/servers/"+uuid+"/install-status", data)
+func (c *client) SetInstallationStatus(ctx context.Context, uuid string, phase string) error {
+	_, err := Post[d](c, ctx, "/internal/event/servers/"+uuid+"/install-status", phase)
 	return err
 }
 

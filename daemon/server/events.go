@@ -1,20 +1,24 @@
 package server
 
 import (
-	"protoxon.com/sls/daemon/events"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/events"
 )
 
 // Defines all the possible output events for a server.
 const (
-	DaemonMessageEvent    = "daemon message"
-	InstallOutputEvent    = "install output"
-	InstallStartedEvent   = "install started"
-	InstallCompletedEvent = "install completed"
-	ConsoleOutputEvent    = "console output"
-	StatusEvent           = "status"
-	StatsEvent            = "stats"
-	DeletedEvent          = "deleted"
+	DaemonMessageEvent = "daemon message"
+	InstallOutputEvent = "install output"
+	InstallEvent       = "install"
+	ConsoleOutputEvent = "console output"
+	StatusEvent        = "status"
+	StatsEvent         = "stats"
+	DeletedEvent       = "deleted"
+
+	// Public install phases sent on the server and global websockets.
+	InstallStatusInstalling = "installing"
+	InstallStatusCompleted  = "completed"
+	InstallStatusFailed     = "failed"
 )
 
 // Events returns the server's emitter instance.

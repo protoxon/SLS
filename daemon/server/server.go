@@ -7,17 +7,20 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"emperror.dev/errors"
 	"github.com/apex/log"
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/environment"
-	"protoxon.com/sls/daemon/events"
 	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/oras/store"
 	"protoxon.com/sls/daemon/remote"
 	"protoxon.com/sls/daemon/server/filesystem"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/api"
+	"protoxon.com/sls/internal/events"
+	"protoxon.com/sls/internal/process"
 )
 
 // Server is the high level definition for a server instance being controlled
@@ -40,8 +43,8 @@ type Server struct {
 	// The unique identifier for the server
 	id string
 
-	// Whether to save this server when its shutdown
-	save bool
+	// Whether this server persists after shutdown
+	persists bool
 
 	// Removes the server from the manager
 	Remove func()
@@ -50,7 +53,7 @@ type Server struct {
 
 	sinks map[system.SinkName]*system.SinkPool
 
-	// Maintains the configuration for the server. This is the data that gets returned by protocube
+	// Maintains the configuration for the server. This is the data that gets returned by controller
 	// such as build settings and container images.
 	cfg Configuration
 
@@ -58,6 +61,11 @@ type Server struct {
 	volumes           []models.Volume
 	volumeStore       *store.Store
 	volumesConfigured bool
+
+	softwareID      string
+	serverFolder    string
+	snapshots       []api.SnapshotMount
+	snapshotRunning bool
 
 	fs *filesystem.Filesystem
 
@@ -68,12 +76,15 @@ type Server struct {
 	Environment environment.ProcessEnvironment `json:"-"`
 
 	// Defines the process configuration for the server instance.
-	procConfig *models.ProcessConfiguration
+	procConfig *process.ProcessConfiguration
 
 	// Tracks if we've already emitted the very first status update.
 	initialStateBroadcast *system.AtomicBool
 
 	installState *installState
+
+	wsBag       *WebsocketBag
+	wsBagLocker sync.Mutex
 
 	// BaseReinstallAllowed reports whether reinstall may proceed for servers using
 	// basePath. When true, no server on the node sharing that installed artifact
@@ -133,14 +144,14 @@ eloop:
 	return out
 }
 
-func (s *Server) ProcessConfiguration() *models.ProcessConfiguration {
+func (s *Server) ProcessConfiguration() *process.ProcessConfiguration {
 	s.RLock()
 	defer s.RUnlock()
 
 	return s.procConfig
 }
 
-func (s *Server) SetProcessConfiguration(cfg *models.ProcessConfiguration) {
+func (s *Server) SetProcessConfiguration(cfg *process.ProcessConfiguration) {
 	s.Lock()
 	defer s.Unlock()
 	s.procConfig = cfg
@@ -215,7 +226,7 @@ func (s *Server) OnStateChange() {
 	}
 
 	// Reset the resource usage to 0 when the process fully stops so that all the UI
-	// views in protocube correctly display 0.
+	// views in controller correctly display 0.
 	if st == environment.ProcessOfflineState {
 		s.resources.Reset()
 		s.Events().Publish(StatsEvent, s.Proc())
@@ -235,15 +246,23 @@ func (s *Server) OnStateChange() {
 		s.handleServerCrash()
 	}
 
-	// If server was running/starting and is now offline, and saving is false, delete it
+	// If server was running/starting and is now offline, and it does not persist, delete it
 	// Only delete if there's no active power action (to avoid deleting during restart/stop actions)
 	// This handles crashes, console stop commands, disk space limiter, and other edge cases
 	if st == environment.ProcessOfflineState {
-		if (prevState == environment.ProcessStartingState || prevState == environment.ProcessRunningState) && !s.save && !s.ExecutingPowerAction() {
+		if (prevState == environment.ProcessStartingState || prevState == environment.ProcessRunningState) && !s.persists && !s.ExecutingPowerAction() {
 			go s.Delete()
 			return
 		}
 	}
+}
+
+// notifyTimeout bounds reports to Controller that must not depend on the
+// server context, such as a deletion or a failed install.
+const notifyTimeout = 15 * time.Second
+
+func notifyContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), notifyTimeout)
 }
 
 // Cancels the context assigned to this server instance. Assuming background tasks
@@ -257,9 +276,13 @@ func (s *Server) CtxCancel() {
 
 // CleanupForDestroy stops all running background tasks for this server that are
 // using the context on the server struct. This will cancel any running install
-// processes for the server as well.
-func (s *Server) CleanupForDestroy() {
-	if err := s.client.ServerDeleted(s.ctx, s.id); err != nil {
+// processes for the server as well. reason is sent to Controller with the
+// deleted event and may be empty.
+func (s *Server) CleanupForDestroy(reason string) {
+	ctx, cancel := notifyContext()
+	err := s.client.ServerDeleted(ctx, s.id, reason)
+	cancel()
+	if err != nil {
 		log.WithError(err).Warnf("Failed to send deletion event for server %s", s.ID())
 	}
 	s.CtxCancel()
@@ -268,14 +291,32 @@ func (s *Server) CleanupForDestroy() {
 	if s.installLock != nil {
 		s.installLock.Destroy()
 	}
-	// per-server websockets are not implemented yet
-	// this will be needed when they are implemented
-	//s.Websockets().CancelAll()
+	s.Websockets().CancelAll()
 	s.powerLock.Destroy()
 }
 
 // Delete Deletes a server from the daemon and dissociate its objects.
 func (s *Server) Delete() error {
+	return s.delete("")
+}
+
+// deleteAfterFailure deletes a non-persistent server that failed to start and
+// tells Controller why, so the failure is not lost with the server.
+func (s *Server) deleteAfterFailure(action PowerAction, cause error) {
+	reason := fmt.Sprintf("%s failed: %v", action, cause)
+	s.Log().WithField("reason", reason).Warn("deleting non-persistent server after a failed power action")
+	if err := s.delete(reason); err != nil {
+		s.Log().WithField("error", err).Error("failed to delete non-persistent server")
+	}
+}
+
+func (s *Server) delete(reason string) error {
+	s.RLock()
+	snapshotting := s.snapshotRunning
+	s.RUnlock()
+	if snapshotting {
+		return ErrSnapshotInProgress
+	}
 
 	// Immediately suspend the server to prevent a user from attempting
 	// to start it while this process is running.
@@ -284,7 +325,7 @@ func (s *Server) Delete() error {
 	// Notify all websocket clients that the server is being deleted.
 	s.Events().Publish(DeletedEvent, nil)
 
-	s.CleanupForDestroy()
+	s.CleanupForDestroy(reason)
 
 	// Destroy the environment; in Docker this will handle a running container and
 	// forcibly terminate it before removing the container, so we do not need to handle
@@ -335,6 +376,11 @@ func (s *Server) ID() string {
 	return s.id
 }
 
+// SetIDForTest assigns the server identifier without the install path.
+func (s *Server) SetIDForTest(id string) {
+	s.id = id
+}
+
 // APIResponse is a type returned when requesting details about a single server
 // instance on the daemon.
 type APIResponse struct {
@@ -355,11 +401,11 @@ func (s *Server) ToAPIResponse() APIResponse {
 	}
 }
 
-// Sync syncs the state of the server on Protocube with the daemon. This ensures that
-// we're always using the state of the server from Protocube and allows us to
+// Sync syncs the state of the server on Controller with the daemon. This ensures that
+// we're always using the state of the server from Controller and allows us to
 // not require successful API calls to the daemon to do things.
 //
-// This also means mass actions can be performed against servers on Protocube
+// This also means mass actions can be performed against servers on Controller
 // and they will automatically sync with the daemon when the server is started.
 func (s *Server) Sync() error {
 	cfg, err := s.client.GetServerConfiguration(s.Context(), s.ID())

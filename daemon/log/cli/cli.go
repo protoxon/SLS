@@ -15,6 +15,7 @@ import (
 	"github.com/mattn/go-colorable"
 	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/logcomponent"
 )
 
 var (
@@ -35,6 +36,10 @@ type Handler struct {
 	mu      sync.Mutex
 	Writer  io.Writer
 	Padding int
+	colors  bool
+	// LabelComponents prints the [controller] / [daemon] tag. sls run sets
+	// this on stderr. Standalone daemons leave it false.
+	LabelComponents bool
 }
 
 // New creates a log Handler
@@ -42,7 +47,7 @@ type Handler struct {
 func New(w io.Writer, useColors bool) *Handler {
 	if f, ok := w.(*os.File); ok {
 		if useColors {
-			return &Handler{Writer: colorable.NewColorable(f), Padding: 2}
+			return &Handler{Writer: colorable.NewColorable(f), Padding: 2, colors: true}
 		}
 	}
 
@@ -58,10 +63,10 @@ func (h *Handler) HandleLog(e *log.Entry) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	color.Fprintf(h.Writer, "%s: [%s] %-25s", bold.Sprintf("%*s", h.Padding+1, level), time.Now().Format(time.StampMilli), e.Message)
+	h.writeMessage(color, level, e.Message, e)
 
 	for _, name := range names {
-		if name == "source" {
+		if name == "source" || name == "component" {
 			continue
 		}
 		fmt.Fprintf(h.Writer, " %s=%v", color.Sprint(name), e.Fields.Get(name))
@@ -87,6 +92,24 @@ func (h *Handler) HandleLog(e *log.Entry) error {
 	}
 
 	return nil
+}
+
+func (h *Handler) writeMessage(levelColor *color2.Color, level, message string, e *log.Entry) {
+	ts := time.Now().Format(time.StampMilli)
+	levelText := bold.Sprintf("%*s", h.Padding+1, level)
+	component := ""
+	if h.LabelComponents {
+		if s, ok := e.Fields.Get("component").(string); ok {
+			component = s
+		}
+	}
+	if component == "" {
+		_, _ = levelColor.Fprintf(h.Writer, "%s: [%s] %-25s", levelText, ts, message)
+		return
+	}
+	_, _ = levelColor.Fprintf(h.Writer, "%s: [%s] ", levelText, ts)
+	logcomponent.WriteLabel(h.Writer, component, h.colors)
+	_, _ = levelColor.Fprintf(h.Writer, "%-25s", message)
 }
 
 func (h *Handler) writeStack(err error) {

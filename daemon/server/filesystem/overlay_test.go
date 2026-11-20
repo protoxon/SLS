@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestMkdirsCreatesParentsAndLeavesLowerUntouched(t *testing.T) {
@@ -87,5 +89,99 @@ func TestSetRootVolumeLowersKeepsServerPath(t *testing.T) {
 	got := ov.RootOverlay().Lower
 	if len(got) != 2 || got[0] != serverPath || got[1] != "/vol2" {
 		t.Fatalf("lower: %v", got)
+	}
+}
+
+func TestSelectedOverlayRespectsExclude(t *testing.T) {
+	data := t.TempDir()
+	ov, err := NewOverlayVolume(t.TempDir(), data, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ov.NewOverlay("root", []string{ov.ServerPath}, data)
+	ov.NewOverlay("plugins", []string{"/vol"}, filepath.Join(data, "plugins"))
+	specs, err := ov.selectedLocked(SnapshotOptions{Excludes: []string{"/"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(specs) != 1 || specs[0].target != "/plugins" || specs[0].name != "plugins" {
+		t.Fatalf("specs: %+v", specs)
+	}
+	if _, err := ov.selectedLocked(SnapshotOptions{Targets: []string{"/missing"}}); err == nil {
+		t.Fatal("expected unknown target to fail")
+	}
+}
+
+func TestCaptureUpperPrefersMergedBytes(t *testing.T) {
+	upper := t.TempDir()
+	merged := t.TempDir()
+	if err := os.WriteFile(filepath.Join(upper, "a.txt"), []byte("stub"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(merged, "a.txt"), []byte("full"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(upper, "empty"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("a.txt", filepath.Join(upper, "link")); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(t.TempDir(), "layer")
+	layer, err := captureUpper(upper, merged, dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "a.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "full" {
+		t.Fatalf("file: %q", got)
+	}
+	link, err := os.Readlink(filepath.Join(dest, "link"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if link != "a.txt" {
+		t.Fatalf("link: %s", link)
+	}
+	if layer.Size != int64(len("full")) {
+		t.Fatalf("size: %d", layer.Size)
+	}
+	if len(layer.Symlinks) != 1 || len(layer.Dirs) != 1 {
+		t.Fatalf("layer: %+v", layer)
+	}
+}
+
+func TestCaptureUpperKeepsWhiteout(t *testing.T) {
+	upper := t.TempDir()
+	whiteout := filepath.Join(upper, "gone")
+	if err := unix.Mknod(whiteout, unix.S_IFCHR|0o644, 0); err != nil {
+		t.Skip(err)
+	}
+	dest := filepath.Join(t.TempDir(), "layer")
+	layer, err := captureUpper(upper, t.TempDir(), dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(layer.Whiteouts) != 1 || layer.Whiteouts[0] != "gone" {
+		t.Fatalf("whiteouts: %v", layer.Whiteouts)
+	}
+	if ok, err := isWhiteout(filepath.Join(dest, "gone")); err != nil || !ok {
+		t.Fatalf("dest whiteout: %v %v", ok, err)
+	}
+}
+
+func TestSnapshotClearsInProgressFlag(t *testing.T) {
+	data := t.TempDir()
+	ov, err := NewOverlayVolume(t.TempDir(), data, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ov.NewOverlay("root", []string{ov.ServerPath}, data)
+	_, _ = ov.Snapshot(SnapshotOptions{ID: "snap", Root: t.TempDir()})
+	if ov.snapshotting.Load() {
+		t.Fatal("snapshot flag still set")
 	}
 }

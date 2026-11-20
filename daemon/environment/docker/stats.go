@@ -10,6 +10,7 @@ import (
 	"emperror.dev/errors"
 	"github.com/docker/docker/api/types/container"
 	"protoxon.com/sls/daemon/environment"
+	"protoxon.com/sls/internal/stats"
 )
 
 // Uptime returns the current uptime of the container in milliseconds. If the
@@ -39,18 +40,18 @@ func (e *Environment) pollResources(ctx context.Context) error {
 	e.log().Info("starting resource polling for container")
 	defer e.log().Debug("stopped resource polling for container")
 
-	stats, err := e.client.ContainerStats(ctx, e.Id, true)
+	stream, err := e.client.ContainerStats(ctx, e.Id, true)
 	if err != nil {
 		return err
 	}
-	defer stats.Body.Close()
+	defer stream.Body.Close()
 
 	uptime, err := e.Uptime(ctx)
 	if err != nil {
 		e.log().WithField("error", err).Warn("failed to calculate container uptime")
 	}
 
-	dec := json.NewDecoder(stats.Body)
+	dec := json.NewDecoder(stream.Body)
 	for {
 		select {
 		case <-ctx.Done():
@@ -76,13 +77,13 @@ func (e *Environment) pollResources(ctx context.Context) error {
 				uptime = uptime + v.Read.Sub(v.PreRead).Milliseconds()
 			}
 
-			st := environment.Stats{
+			st := stats.Stats{
 				Uptime:           uptime,
 				Memory:           calculateDockerMemory(v.MemoryStats),
 				MemoryLimit:      v.MemoryStats.Limit,
 				CpuAbsolute:      calculateDockerAbsoluteCpu(v.PreCPUStats, v.CPUStats),
 				CpuAbsoluteLimit: float64(e.Configuration.Limits().CpuLimit),
-				Network:          environment.NetworkStats{},
+				Network:          stats.NetworkStats{},
 			}
 
 			for _, nw := range v.Networks {

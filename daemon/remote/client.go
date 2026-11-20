@@ -7,7 +7,11 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"protoxon.com/sls/daemon/config"
 	"protoxon.com/sls/daemon/models"
+	"protoxon.com/sls/daemon/oras/store"
+	"protoxon.com/sls/internal/api"
+	"protoxon.com/sls/internal/httpunix"
 )
 
 type Client interface {
@@ -17,12 +21,17 @@ type Client interface {
 	Disconnect(ctx context.Context)
 	StatusUpdate(ctx context.Context, status string, id string) error // Sends a server status update
 	CrashReport(ctx context.Context, data CrashData, id string) error // Sends a server crash report
-	ServerDeleted(ctx context.Context, id string) error               // Sends a server deleted event
+	ServerDeleted(ctx context.Context, id, reason string) error       // Sends a server deleted event
 	GetServers(context context.Context, perPage int) ([]models.ServerConfiguration, error)
 	GetServerConfiguration(ctx context.Context, uuid string) (models.ServerConfiguration, error)
 	GetInstallationScript(ctx context.Context, serverId string) (InstallationScript, error)
-	SetInstallationStatus(ctx context.Context, uuid string, data InstallStatusRequest) error
+	SetInstallationStatus(ctx context.Context, uuid string, phase string) error
+	GetRegistry(ctx context.Context) (models.RegistrySnapshot, error)
+	SyncRegistry(ctx context.Context) error
+	SyncRegistryIfChanged(ctx context.Context, revision string) error
 	SetOnConnected(callback func(context.Context))
+	SetVolumeStore(st *store.Store)
+	ReportSnapshot(ctx context.Context, ev api.SnapshotProgress) error
 }
 
 type client struct {
@@ -33,6 +42,7 @@ type client struct {
 	ctx         context.Context
 	cancel      context.CancelFunc
 	onConnected func(context.Context)
+	volumes     *store.Store
 	mu          sync.RWMutex
 }
 
@@ -56,7 +66,18 @@ func New(base string, opts ...ClientOption) Client {
 	return &c
 }
 
-// Start registers with Protocube and begins heartbeats. Call this after
+// NewFromConfig dials remote.url. When remote.socket is set, requests use that
+// Unix socket and the URL host stays a normal HTTP origin.
+func NewFromConfig() Client {
+	cfg := config.Get()
+	opts := []ClientOption{WithCredentials(cfg.RemoteApi.Token)}
+	if socket := cfg.RemoteApi.Socket.ActivePath(); socket != "" {
+		opts = append(opts, WithHttpClient(httpunix.Client(socket, 15*time.Second)))
+	}
+	return New(cfg.RemoteApi.Url, opts...)
+}
+
+// Start registers with Controller and begins heartbeats. Call this after
 // SetOnConnected so the first successful register can sync servers.
 func (c *client) Start() {
 	go func() {
@@ -89,6 +110,13 @@ func (c *client) notifyConnected(ctx context.Context) {
 	}
 }
 
+// SetVolumeStore is the cache Register writes the blueprint artifact list into.
+func (c *client) SetVolumeStore(st *store.Store) {
+	c.mu.Lock()
+	c.volumes = st
+	c.mu.Unlock()
+}
+
 // WithCredentials sets the credentials to use when making request to the remote
 // API endpoint.
 func WithCredentials(token string) ClientOption {
@@ -98,7 +126,7 @@ func WithCredentials(token string) ClientOption {
 }
 
 // WithHttpClient sets the underlying HTTP client instance to use when making
-// requests to protocube API.
+// requests to controller API.
 func WithHttpClient(httpClient *http.Client) ClientOption {
 	return func(c *client) {
 		c.httpClient = httpClient

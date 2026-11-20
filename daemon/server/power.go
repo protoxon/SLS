@@ -131,17 +131,17 @@ func (s *Server) HandlePowerAction(action PowerAction, waitSeconds ...int) error
 
 		// Run the pre-boot logic for the server before processing the environment start.
 		if err := s.onBeforeStart(); err != nil {
-			if !s.save {
-				// If saving is false delete the server if startup failed
-				go s.Delete()
+			if !s.persists {
+				// If the server does not persist, delete it when startup fails
+				go s.deleteAfterFailure(action, err)
 			}
 			return err
 		}
 
 		err := s.Environment.Start(s.Context())
-		// If the server failed to start and saving is disabled delete the server
-		if err != nil && !s.save {
-			go s.Delete()
+		// If the server failed to start and does not persist, delete it
+		if err != nil && !s.persists {
+			go s.deleteAfterFailure(action, err)
 		}
 		return err
 	case PowerActionStop:
@@ -162,8 +162,8 @@ func (s *Server) HandlePowerAction(action PowerAction, waitSeconds ...int) error
 		}
 
 		if action == PowerActionStop {
-			// delete the server if saving is disabled
-			if !s.save {
+			// delete the server if it does not persist
+			if !s.persists {
 				go s.Delete()
 			}
 			return nil
@@ -171,23 +171,23 @@ func (s *Server) HandlePowerAction(action PowerAction, waitSeconds ...int) error
 
 		// Now actually try to start the process by executing the normal pre-boot logic.
 		if err := s.onBeforeStart(); err != nil {
-			if !s.save {
-				// If saving is false delete the server if startup failed
-				go s.Delete()
+			if !s.persists {
+				// If the server does not persist, delete it when startup fails
+				go s.deleteAfterFailure(action, err)
 			}
 			return err
 		}
 
 		err := s.Environment.Start(s.Context())
-		// If restart failed and saving is disabled delete the server
-		if err != nil && !s.save {
-			go s.Delete()
+		// If restart failed and the server does not persist, delete it
+		if err != nil && !s.persists {
+			go s.deleteAfterFailure(action, err)
 		}
 		return err
 	case PowerActionTerminate:
 		err := s.Environment.Terminate(s.Context(), "SIGKILL")
-		// If saving is disabled delete the server after termination
-		if err == nil && !s.save {
+		// If the server does not persist, delete it after termination
+		if err == nil && !s.persists {
 			go s.Delete()
 		}
 		return err
@@ -234,7 +234,7 @@ func (s *Server) HandleReset() error {
 
 	if running {
 		// Only acquire the power lock if the server is running - this prevents
-		// deletion when saving is false during the stop operation
+		// deletion when the server does not persist during the stop operation
 		if err := s.powerLock.Acquire(); err != nil {
 			return errors.Wrap(err, "failed to acquire exclusive lock for reset")
 		}
@@ -271,13 +271,13 @@ func (s *Server) HandleReset() error {
 // Execute a few functions before actually calling the environment start commands. This ensures
 // that everything is ready to go for environment booting, and that the server can even be started.
 func (s *Server) onBeforeStart() error {
-	s.Log().Info("syncing server configuration with protocube")
+	s.Log().Info("syncing server configuration with controller")
 	if err := s.Sync(); err != nil {
-		return errors.WithMessage(err, "unable to sync server data from Protocube")
+		return errors.WithMessage(err, "unable to sync server data from Controller")
 	}
 
 	// Disallow start & restart if the server is suspended. Do this check after performing a sync
-	// action with Protocube to ensure that we have the most up-to-date information for that server.
+	// action with Controller to ensure that we have the most up-to-date information for that server.
 	if s.IsSuspended() {
 		return ErrSuspended
 	}

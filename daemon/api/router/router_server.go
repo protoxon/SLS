@@ -11,9 +11,9 @@ import (
 	"emperror.dev/errors"
 	"github.com/apex/log"
 	"github.com/gin-gonic/gin"
-	"protoxon.com/sls/daemon/api/router/httperror"
 	"protoxon.com/sls/daemon/api/router/middleware"
 	"protoxon.com/sls/daemon/server"
+	"protoxon.com/sls/internal/httperror"
 )
 
 // Handles a request to control the power state of a server. If the action being passed
@@ -21,7 +21,7 @@ import (
 // and the actual power action is run asynchronously so that we don't have to block the
 // request until a potentially slow operation completes.
 //
-// This is done because for the most part protocube is using websockets to determine when
+// This is done because for the most part controller is using websockets to determine when
 // things are happening, so theres no reason to sit and wait for a request to finish. We'll
 // just see over the socket if something isn't working correctly.
 func postServerPower(c *gin.Context) {
@@ -200,6 +200,10 @@ func postServerReset(c *gin.Context) {
 func (r *Router) deleteServer(c *gin.Context) {
 	s := middleware.ExtractServer(c)
 	if err := s.Delete(); err != nil {
+		if errors.Is(err, server.ErrSnapshotInProgress) {
+			httperror.JSON(c, http.StatusConflict, err.Error(), "Wait until the snapshot finishes before deleting this server.")
+			return
+		}
 		middleware.CaptureAndAbort(c, err)
 		return
 	}
@@ -315,4 +319,3 @@ func logPaginationParams(c *gin.Context) (page, perPage int) {
 	}
 	return page, perPage
 }
-

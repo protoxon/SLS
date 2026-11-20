@@ -4,8 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"protoxon.com/sls/daemon/environment"
 	"protoxon.com/sls/daemon/system"
+	"protoxon.com/sls/internal/stats"
 )
 
 // ResourceUsage defines the current resource usage for a given server instance. If a server is offline you
@@ -15,7 +15,7 @@ type ResourceUsage struct {
 	mu sync.RWMutex
 
 	// Embed the current environment stats into this server specific resource usage struct.
-	environment.Stats
+	stats.Stats
 
 	// The current server status.
 	State *system.AtomicString `json:"state"`
@@ -48,9 +48,9 @@ func (s *Server) Proc() ResourceUsage {
 }
 
 // UpdateStats updates the current stats for the server's resource usage.
-func (ru *ResourceUsage) UpdateStats(stats environment.Stats) {
+func (ru *ResourceUsage) UpdateStats(next stats.Stats) {
 	ru.mu.Lock()
-	ru.Stats = stats
+	ru.Stats = next
 	ru.mu.Unlock()
 }
 

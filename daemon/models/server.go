@@ -1,61 +1,17 @@
 package models
 
-import (
-	"protoxon.com/sls/daemon/environment"
-)
+import "protoxon.com/sls/internal/api"
 
-// ServerConfiguration holds the server configuration data returned from
-// Protocube. When a server process is started, The daemon communicates with Protocube
-// to fetch the latest build information.
-//
-// This means we do not need to hit the daemon each time part of the server is
-// updated, and Protocube serves as the source of truth at all times. This also
-// means if a configuration is accidentally wiped on the daemon we can self-recover
-// without too much hassle, so long as the daemon is aware of what servers should
-// exist on it.
-type ServerConfiguration struct {
-	Id                   string                  `json:"id"`
-	ProcessConfiguration *ProcessConfiguration   `json:"process-configuration"`
-	Image                string                  `json:"image"`
-	Invocation           string                  `json:"invocation"`
-	State                State                   `json:"state"`
-	Limits               environment.Limits      `json:"limits"`
-	Save                 bool                    `json:"save"`
-	Allocations          environment.Allocations `json:"allocations"`
-	ServerFolder         string                  `json:"server-folder"`
-	SoftwareId           string                  `json:"software-id"`
-	SoftwareVersion      string                  `json:"software-version"`
-	HasInstallScript     bool                    `json:"has-install-script"`
-	SkipInstallScript    bool                    `json:"skip-install-script"`
-}
+// ServerConfiguration is the runtime document fetched from Controller.
+type ServerConfiguration = api.ServerConfiguration
 
-// State holds the server's state configuration
-type State struct {
-	Volumes []Volume            `yaml:"volumes,omitempty" json:"volumes,omitempty"`
-	Mounts  []environment.Mount `yaml:"mounts,omitempty" json:"mounts,omitempty"`
-	Copy    []Copy              `yaml:"copy,omitempty" json:"copy,omitempty"`
-	Env     map[string]string
-}
-
-type Copy struct {
-	Source string `yaml:"source" json:"source"`
-	Target string `yaml:"target" json:"target"`
-}
-
-// Volume is a pulled artifact (cow/ro) or a local dir under the volumes root
-// (source + target; rw allowed only for local dirs outside cas/digests).
-type Volume struct {
-	Name     string     `yaml:"name" json:"name"`
-	Artifact string     `yaml:"artifact,omitempty" json:"artifact,omitempty"`
-	Source   string     `yaml:"source" json:"source"`
-	Target   string     `yaml:"target" json:"target"`
-	Mode     VolumeMode `yaml:"mode,omitempty" json:"mode,omitempty"`
-}
-
-type VolumeMode string
+type State = api.State
+type Copy = api.Copy
+type Volume = api.Volume
+type VolumeMode = api.VolumeMode
 
 const (
-	VolumeModeCOW VolumeMode = "cow" // copy-on-write overlay
-	VolumeModeRO  VolumeMode = "ro"  // read-only bind
-	VolumeModeRW  VolumeMode = "rw"  // read-write bind
+	VolumeModeCOW = api.VolumeModeCOW
+	VolumeModeRO  = api.VolumeModeRO
+	VolumeModeRW  = api.VolumeModeRW
 )

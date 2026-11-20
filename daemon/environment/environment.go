@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"protoxon.com/sls/daemon/events"
+	"protoxon.com/sls/internal/events"
+	"protoxon.com/sls/internal/process"
 )
 
 const (
@@ -16,11 +17,11 @@ const (
 )
 
 const (
-	ProcessOfflineState  = "offline"
-	ProcessStartingState = "starting"
-	ProcessRunningState  = "running"
-	ProcessStoppingState = "stopping"
-	ProcessPausedState   = "paused"
+	ProcessOfflineState  = process.Offline
+	ProcessStartingState = process.Starting
+	ProcessRunningState  = process.Running
+	ProcessStoppingState = process.Stopping
+	ProcessPausedState   = process.Paused
 )
 
 // Defines the basic interface that all environments need to implement so that

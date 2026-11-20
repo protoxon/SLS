@@ -237,7 +237,7 @@ func (e *Environment) Create() error {
 		},
 
 		// Define resource limits for the container based on the data passed through
-		// from protocube.
+		// from controller.
 		Resources: e.Configuration.Limits().AsContainerResources(),
 
 		DNS: cfg.Docker.Network.Dns,

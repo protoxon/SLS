@@ -3,8 +3,8 @@ package server
 import (
 	"testing"
 
-	"protoxon.com/sls/daemon/models"
 	"protoxon.com/sls/daemon/remote"
+	"protoxon.com/sls/internal/process"
 )
 
 func TestWarmupDefaults(t *testing.T) {
@@ -55,12 +55,12 @@ func TestWarmupMatchesStartupSignal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	matcher, err := models.NewOutputLineMatcher("server online")
+	matcher, err := process.NewOutputLineMatcher("server online")
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.SetProcessConfiguration(&models.ProcessConfiguration{})
-	s.ProcessConfiguration().Startup.Done = []*models.OutputLineMatcher{matcher}
+	s.SetProcessConfiguration(&process.ProcessConfiguration{})
+	s.ProcessConfiguration().Startup.Done = []*process.OutputLineMatcher{matcher}
 
 	ip := &InstallationProcess{Server: s, Script: &remote.InstallationScript{}}
 

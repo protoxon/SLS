@@ -19,6 +19,7 @@ type OverlayVolume struct {
 	mounted      atomic.Bool
 	serverVolume string
 	usage        atomic.Int64
+	snapshotting atomic.Bool
 	Overlays     []*overlay.Overlay
 	ServerPath   string
 }
@@ -99,7 +100,13 @@ func (ov *OverlayVolume) IsMounted() bool {
 func (ov *OverlayVolume) Mount() error {
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
+	if ov.snapshotting.Load() {
+		return errSnapshotInProgress
+	}
+	return ov.mountLocked()
+}
 
+func (ov *OverlayVolume) mountLocked() error {
 	// Mount the overlays
 	for _, o := range ov.Overlays {
 
@@ -121,7 +128,13 @@ func (ov *OverlayVolume) Mount() error {
 func (ov *OverlayVolume) Unmount() error {
 	ov.mu.Lock()
 	defer ov.mu.Unlock()
+	if ov.snapshotting.Load() {
+		return errSnapshotInProgress
+	}
+	return ov.unmountLocked()
+}
 
+func (ov *OverlayVolume) unmountLocked() error {
 	var errs []error
 
 	for _, v := range slices.Backward(ov.Overlays) {

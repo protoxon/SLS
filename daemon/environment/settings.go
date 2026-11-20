@@ -8,6 +8,7 @@ import (
 	"github.com/apex/log"
 	"github.com/docker/docker/api/types/container"
 	"protoxon.com/sls/daemon/config"
+	"protoxon.com/sls/internal/api"
 )
 
 type Mount struct {
@@ -31,32 +32,9 @@ type Mount struct {
 }
 
 // Limits is the build settings for a given server that impact docker container
-// creation and resource limits for a server instance.
-type Limits struct {
-	// The total amount of memory in mebibytes that this server is allowed to
-	// use on the host system.
-	MemoryLimit int64 `json:"memory_limit"`
-
-	// The amount of additional swap space to be provided to a container instance.
-	Swap int64 `json:"swap"`
-
-	// The relative weight for IO operations in a container. This is relative to other
-	// containers on the system and should be a value between 10 and 1000.
-	IoWeight uint16 `json:"io_weight"`
-
-	// The percentage of CPU that this instance is allowed to consume relative to
-	// the host. A value of 200% represents complete utilization of two cores. This
-	// should be a value between 1 and THREAD_COUNT * 100.
-	CpuLimit int64 `json:"cpu_limit"`
-
-	// The amount of disk space in megabytes that a server is allowed to use.
-	DiskSpace int64 `json:"disk_space"`
-
-	// Sets which CPU threads can be used by the docker instance.
-	Threads string `json:"threads"`
-
-	OOMDisabled bool `json:"oom_disabled"`
-}
+// creation and resource limits for a server instance. The fields are the
+// resolved wire document; methods here translate them into Docker resources.
+type Limits api.Limits
 
 // ConvertedCpuLimit converts the CPU limit for a server build into a number
 // that can be better understood by the Docker environment. If there is no limit
@@ -81,6 +59,24 @@ func (l Limits) BoundedMemoryLimit() int64 {
 	return int64(math.Round(float64(l.MemoryLimit) * l.MemoryOverheadMultiplier() * 1024 * 1024))
 }
 
+// containerMemory is the hard cgroup cap. A stamped memory_max is used as-is.
+// An absent stamp keeps the overhead multiplier so an older controller still runs.
+func (l Limits) containerMemory() int64 {
+	if l.MemoryMax > 0 {
+		return l.MemoryMax * 1024 * 1024
+	}
+	return l.BoundedMemoryLimit()
+}
+
+// containerMemoryReservation is memory.high on cgroup v2. A stamped reservation
+// is used as-is. An absent stamp keeps the blueprint limit.
+func (l Limits) containerMemoryReservation() int64 {
+	if l.MemoryReservation > 0 {
+		return l.MemoryReservation * 1024 * 1024
+	}
+	return l.MemoryLimit * 1024 * 1024
+}
+
 // ConvertedSwap returns the amount of swap available as a total in bytes. This
 // is returned as the amount of memory available to the server initially, PLUS
 // the amount of additional swap to include which is the format used by Docker.
@@ -89,7 +85,7 @@ func (l Limits) ConvertedSwap() int64 {
 		return -1
 	}
 
-	return (l.Swap * 1024 * 1024) + l.BoundedMemoryLimit()
+	return (l.Swap * 1024 * 1024) + l.containerMemory()
 }
 
 // ProcessLimit returns the process limit for a container. This is currently
@@ -103,8 +99,8 @@ func (l Limits) ProcessLimit() int64 {
 func (l Limits) AsContainerResources() container.Resources {
 	pids := l.ProcessLimit()
 	resources := container.Resources{
-		Memory:            l.BoundedMemoryLimit(),
-		MemoryReservation: l.MemoryLimit * 1024 * 1024,
+		Memory:            l.containerMemory(),
+		MemoryReservation: l.containerMemoryReservation(),
 		MemorySwap:        l.ConvertedSwap(),
 		OomKillDisable:    &l.OOMDisabled,
 		PidsLimit:         &pids,
@@ -134,7 +130,7 @@ func (l Limits) AsContainerResources() container.Resources {
 type Variables map[string]interface{}
 
 // Get is an ugly hacky function to handle environment variables that get passed
-// through as not-a-string from protocube. Ideally we'd just say only pass
+// through as not-a-string from controller. Ideally we'd just say only pass
 // strings, but that is a fragile idea and if a string wasn't passed through
 // you'd cause a crash or the server to become unavailable. For now try to
 // handle the most likely values from the JSON and hope for the best.
