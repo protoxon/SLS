@@ -17,27 +17,14 @@
 # VS Code
 .vscode/
 
+# Developers can store local stuff in dirs named __something
+__*
+
 # Mac OS
 .DS_Store
 
-# Build artifacts
-**/target/
-target/
-*.class
-*.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-dependency-reduced-pom.xml
-**/dependency-reduced-pom.xml
-
 # Compiled binaries
-slimepacks/slimepacks.so
 *.so
-daemon/daemon*
-daemon/sls
-protocube/protocube*
-cli/sls
-
-cli/data
-cli/out
+/bin/
+/sls
 

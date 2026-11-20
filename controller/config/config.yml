@@ -1,0 +1,148 @@
+# Any value may use ${NAME} to read an environment variable, for example
+# password: ${REGISTRY_PASSWORD}. An unset variable stops startup. Write $${
+# for a literal ${.
+
+# Generated id for this Controller. Filled in when the file is created.
+uuid: ""
+debug: false
+app_name: "SLS"
+
+system:
+  root_directory: "/var/lib/sls"
+  log_directory: "/var/log/sls/controller"
+  blueprints: "/var/lib/sls/blueprints"
+  software: "/var/lib/sls/software"
+  plugins: "/var/lib/sls/plugins"
+
+api:
+  host: "0.0.0.0"
+  port: 5620
+  listen: true # set to false if you only want to use the local Unix sockets
+  tls:
+    enabled: true
+    cert: "/etc/ssl/certs/cert.pem"
+    key: "/etc/ssl/certs/key.pem"
+  # API socket a local daemon dials. Connections here are a local node and do not
+  # need a token.
+  # This is enabled by default when running the daemon and controller together via 'sls run'
+  socket:
+    enabled: false
+    path: /var/lib/sls/run/controller.sock
+  # Local CLI socket. Connections here skip bearer authentication.
+  admin_socket: /var/lib/sls/run/sls.sock
+
+
+# Remote blueprint sources synced into system.blueprints before load, and on
+# reload when update_on_reload is true.
+#
+# blueprint:
+#   sources:
+#     - type: git
+#       url: "https://github.com/org/sls-blueprints.git"
+#       ref: "main"
+#       path: "."
+#       dest: "."
+#       auth:
+#         token: "ghp_..." # Leave blank if the repo is public
+#       update_on_reload: true
+blueprint:
+  sources: []
+
+# Volume registry configuration
+registry:
+  # Default sets the default registry url to use if none is present on a reference
+  # this allows you to do repository:tag instead of https://<controller>:5620/<repository>:<tag>
+  default: "controller.sls.net:5620"
+  # Optional host or host/namespace for snapshots. Unset uses default.
+  # Each snapshot is stored as <registry>/snapshots:<id>.
+  # A separate HTTP registry needs credentials[].insecure on that host.
+  # snapshots: "registry.internal:5000/sls"
+  # Set to true if the default registry use http
+  insecure: false
+  # The location where the embedded volume registry stores its data
+  storage: /var/lib/sls/registry
+  # List of registry credentials
+  # allows the nodes to authenticate with a registry,
+  # registry:
+  #   credentials:
+  #     - host: ghcr.io
+  #       username: "user"
+  #       password: "ghp_..."
+  #       insecure: false
+  credentials: []
+
+# Placement policy. Blueprints still set one memory limit and one CPU limit.
+# A new server is charged its full memory limit. As the controller watches it
+# run, the charge moves toward its observed peak plus memory_cushion_bytes.
+# Spike room is the burst reserve, held once per node, not on every server.
+# Live node stats can only refuse a node. PSI caps are starting values;
+# measure a busy but healthy node before changing them.
+scheduler:
+  algorithm: least_allocated # least_allocated or most_allocated
+  # When true, a server is still placed if every live node is only over its
+  # memory or CPU ledger. A volume inside the disk reserve is still refused.
+  overallocate: false
+  # When true, admission charges each server's disk quota up front.
+  # Leave false for CoW servers: create time does not fill the quota.
+  # Free space below the disk reserve still refuses. Disk PSI does not.
+  disk_quota_check: false
+  # Sets memory.low on the container. It does not affect placement.
+  memory_request_ratio: 0.85
+  cpu_request_ratio: 0.95
+  default_cpu_request: 25 # a quarter core, used when a blueprint sets no cpu_limit
+  # Sum of CPU requests may reach this many times the schedulable cores.
+  # CPU pressure is what refuses a busy node; this is a backstop.
+  cpu_overcommit_max: 4
+  # Sum of cgroup hard caps may reach this many times schedulable RAM.
+  # A backstop on how far learned charges can pack a node.
+  memory_overcommit_max: 3
+  # A fully trusted server is charged its peak plus this many bytes.
+  memory_cushion_bytes: 268435456
+  # Spike room held once per node: this percent of host RAM, clamped to
+  # [memory_burst_bytes, memory_burst_max] and to half of schedulable RAM.
+  # It does not grow as more quiet servers are added.
+  memory_burst_percent: 10
+  memory_burst_bytes: 2147483648
+  memory_burst_max: 6442450944
+  # How far the charge has moved from the limit toward peak plus cushion
+  # after the server has been running (since its status became running) for
+  # each time. The charge follows a smooth S-curve through these points.
+  # The first minute stays slow. Full trust is at five minutes.
+  memory_learning:
+    - after: 2m
+      learned: 0.15
+    - after: 5m
+      learned: 1.0
+  max_metric_age: 30s
+  host_reserve:
+    memory_percent: 8
+    memory_bytes: 1073741824
+    cpu_percent: 5
+    # Percent of the data filesystem, clamped to [disk_bytes, disk_bytes_max].
+    # A tenth of a large disk is more free space than the host needs.
+    disk_percent: 10
+    disk_bytes: 8589934592
+    disk_bytes_max: 34359738368
+  # CPU and memory PSI refuse a node when avg60 is above its cap or avg10
+  # is above twice the cap. Disk PSI does not refuse a node. Free space
+  # below the disk reserve still does.
+  pressure:
+    memory_full_avg10: 1
+    memory_some_avg10: 10
+    cpu_some_avg60: 10
+  swap:
+    max_pages_per_sec: 64
+    # Heartbeats of swap-out above max_pages_per_sec that refuse a node.
+    # Swap-in is ignored.
+    sustained_samples: 2
+    reject_on_occupancy: false
+
+telemetry_enabled: true
+
+# Extra browser origins allowed to call the API. The Controller's own origin is
+# already allowed.
+allowed_origins: []
+
+# Lets browsers call this API on a private IP over plain HTTP. Leave false
+# unless you serve the API without TLS on a private address.
+allow_cors_private_network: false

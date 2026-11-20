@@ -6,7 +6,7 @@ For full documentation and examples view **[SLS Documentation](https://protoxon.
 
 Discord: [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.com/invite/BrH8GtyGSh)
 
-[![Star this repo](https://img.shields.io/badge/⭐-Star%20this%20repo-yellow?style=for-the-badge)](https://github.com/jessefaler/SLS)
+[![Star this repo](https://img.shields.io/badge/⭐-Star%20this%20repo-yellow?style=for-the-badge)](https://github.com/protoxon/SLS)
 ---
 
 Servers are defined using [**Blueprints**](https://protoxon.github.io/sls-docs/guide/blueprints/introduction.html), where you can specify everything from:
@@ -20,11 +20,15 @@ From a single [Blueprint](https://protoxon.github.io/sls-docs/guide/blueprints/i
 
 ## Key Components
 
-* [**Protocube**](https://protoxon.github.io/sls-docs/guide/installing-protocube.html): The **core controller** of SLS. Tracks all servers, provides an API for management, and routes requests to backend nodes.
-* [**Daemon**](https://protoxon.github.io/sls-docs/guide/installing-daemon.html) (nodes): The **server control plane**. Runs on each physical machine, connects to Protocube, and manages servers inside Docker containers.
-  ### Extra:
-* [**S4J**](https://protoxon.github.io/sls-docs/reference/api/): A **Java API wrapper** for the SLS API.
+* [**Controller**](https://protoxon.github.io/sls-docs/guide/installing-controller.html): The **core controller** of SLS. Tracks all servers, provides an API for management, and routes requests to backend nodes.
+* [**Daemon**](https://protoxon.github.io/sls-docs/guide/installing-daemon.html) (nodes): The **server control plane**. Runs on each physical machine, connects to Controller, and manages servers inside Docker containers.
+* [**CLI**](https://protoxon.github.io/sls-docs/): The `sls` command-line client for the Controller API.
 
+`sls run -dev` runs the controller and a daemon in one process on a single machine. Docker and `CAP_SYS_ADMIN` are still required. To add machines, run `sls run controller` on its own and point each `sls run daemon` at it with its own `remote.url` and node token. The CLI talks to the controller admin socket with `sls --socket <path>`.
+
+Related projects, maintained in their own repositories:
+
+* [**S4J**](https://protoxon.github.io/sls-docs/reference/api/): A **Java API wrapper** for the SLS API.
 * [**vSLS**](https://protoxon.github.io/sls-docs/guide/vsls/): vSLS is a [Velocity](https://docs.papermc.io/velocity/) plugin that lets you manage SLS servers in game.
 ---
 

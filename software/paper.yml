@@ -6,7 +6,7 @@ software:
 
   update:
     enabled: true
-    url: https://github.com/jessefaler/SLS/blob/main/software/paper.yml
+    url: https://github.com/protoxon/SLS/blob/main/software/paper.yml
 
   images:
     "java_25": "ghcr.io/protoxon/images:java_25"

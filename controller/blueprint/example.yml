@@ -1,0 +1,103 @@
+# Blueprint metadata
+blueprint:
+  id: "blueprint"                # Unique slug ID
+  name: "Blueprint Name"         # Human-readable name
+  type: "game"                   # Arbitrary grouping tag
+
+# Server runtime configuration
+# If the software includes an installation script the servers base files
+# will be installed once per version at /servers/<software>/<version>
+# (or a custom path if specified).
+server:
+  software: "platform"
+  version: "1.0.0"
+  image: "ghcr.io/protoxon/images:java_21"
+
+  # optional override
+  # path: "custom/path"
+
+  # Resource limits applied to the container
+  limits:
+    # The total amount of memory in mebibytes that this server is allowed to
+    # use on the host system.
+    memory_limit: 4096
+    # The amount of additional swap space to be provided to a container instance.
+    swap: 1024
+    # The relative weight for IO operations in a container. This is relative to other
+    # containers on the system and should be a value between 10 and 1000.
+    io_weight: 500
+    # The percentage of CPU that this instance is allowed to consume relative to
+    # the host. A value of 200% represents complete utilization of two cores. This
+    # should be a value between 1 and THREAD_COUNT * 100.
+    cpu_limit: 200
+    # The amount of disk space in megabytes that a server is allowed to use.
+    disk_space: 5120
+    # Sets which CPU threads can be used by the docker instance.
+    threads: ""
+    # Terminates the server if it breaches the memory limits.
+    # Enabling OOM killer may cause server processes to exit unexpectedly.
+    oom_disabled: false
+
+  # Configuration patches applied at startup
+  configs:
+    server.properties:
+      parser: properties
+      find:
+        motd: "Blueprint Server"
+
+# Declarative server state
+state:
+
+  # Volumes are managed storage units under the daemon volumes directory
+  # (e.g. /var/lib/sls/volumes). They are never arbitrary host paths.
+  #
+  # Artifact volumes (pulled from a registry) may be cow or ro.
+  # Local volumes require source + target; rw is allowed only for those.
+  volumes:
+    - artifact: "localhost:5000/world:latest"
+      target: "/world"
+      mode: cow
+
+    - name: "world"
+      source: "worlds/world"     # /var/lib/sls/volumes/worlds/world
+      target: "/world"
+      mode: cow
+
+    - name: "plugins"
+      source: "plugins"
+      target: "/plugins"
+      mode: ro
+
+    - name: "data"
+      source: "shared/data"
+      target: "/data"
+      mode: rw
+
+  # Explicit host mounts
+  # These mount arbitrary host paths directly into the container.
+  # They must be explicitly allowed in the daemon configuration.
+  # ro = read-only, rw = read-write (default)
+  mounts:
+    - /host/path:/home/container:ro
+
+  # Copy files into server filesystem at creation
+  # - Files inside the SLS folder can always be copied
+  # - Files outside the SLS folder require the source path to be listed in the daemon's allowed_mounts
+  # Destinations are always relative to the server filesystem
+  copy:
+    - sls/files/config.yml:plugins/config.yml
+
+  # Environment variables for the server
+  env:
+    VAR: "var"
+    ENABLE_FEATURE_X: "true"
+
+# Whether servers created from this blueprint persist after shutdown.
+# If false, the server instance and all non-persistent volume state
+# are destroyed when the server stops.
+persists: false
+
+# Arbitrary metadata for external systems
+annotations:
+  maintainer: "Maintainer"
+  tags: ["game", "example"]

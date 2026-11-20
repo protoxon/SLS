@@ -1,6 +1,0 @@
-
-// version manifest
-https://piston-meta.mojang.com/mc/game/version_manifest.json
-
-// pack format
-https://minecraft.wiki/w/Pack_format
