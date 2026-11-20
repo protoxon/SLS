@@ -1,29 +1,58 @@
+# Start one role per host with a profile:
+#   docker compose --profile controller up -d
+#   docker compose --profile daemon up -d
+x-sls: &sls
+  image: ghcr.io/protoxon/sls:latest
+  build:
+    context: .
+    dockerfile: Dockerfile
+    args:
+      VERSION: v0.1.2
+  restart: always
+  tty: true
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+    - "controller.sls.net:host-gateway"
+    - "daemon.sls.net:host-gateway"
+  networks:
+    - sls
+
 services:
+  controller:
+    <<: *sls
+    profiles: [controller]
+    container_name: SLS
+    command: ["run", "controller", "--config", "/etc/sls/controller/config.yml"]
+    ports:
+      - "5620:5620"
+    environment:
+      TZ: "UTC"
+    volumes:
+      - "/etc/sls/controller/:/etc/sls/controller/"
+      - "/var/lib/sls/:/var/lib/sls/"
+      - "/var/log/sls/controller/:/var/log/sls/controller/"
+      - "/tmp/sls/controller/:/tmp/sls/controller/"
+      - "/etc/ssl/certs:/etc/ssl/certs:ro"
+
   daemon:
-    image: ghcr.io/jessefaler/sls/daemon:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VERSION: v0.1.2
+    <<: *sls
+    profiles: [daemon]
+    command: ["run", "daemon", "--config", "/etc/sls/daemon/config.yml"]
     # Overlay mounts (used for server filesystems) need one of:
     # - userns_mode: host (when Docker uses userns-remap, container root cannot mount)
     # - apparmor=unconfined (Docker's default AppArmor profile can deny mount)
     userns_mode: "host"
+    # Heartbeat memory.current / memory.peak are read from the host cgroup
+    # tree via the game container's host pid. Without these the daemon
+    # samples 0 and the scheduler charges every server its full limit.
+    pid: host
+    cgroup: host
     security_opt:
       - apparmor=unconfined
     cap_add:
       - SYS_ADMIN
-    restart: always
-    networks:
-      - sls
     ports:
       - "5585:5585"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-      - "protocube.sls.net:host-gateway"
-      - "daemon.sls.net:host-gateway"
-    tty: true
     environment:
       TZ: "UTC"
       SLS_UID: 988
@@ -46,6 +75,7 @@ services:
         target: /var/lib/sls
         bind:
           propagation: rshared
+          create_host_path: true
 
 networks:
   sls:

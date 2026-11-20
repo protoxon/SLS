@@ -1,4 +1,4 @@
-name: Daemon Docker Image
+name: Docker Image
 on:
   push:
     branches:
@@ -40,7 +40,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/sls/daemon
+          images: ghcr.io/${{ github.repository_owner }}/sls
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
@@ -50,13 +50,14 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: ./daemon
+          context: .
+          file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           # Push individual architecture digests to GHCR first to avoid overwriting each other's tags
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/sls/daemon,push-by-digest=true,name-canonical=true,push=true
-          # Unique cache scopes isolated by architecture and the daemon namespace
-          cache-from: type=gha,scope=daemon-${{ matrix.platform }}
-          cache-to: type=gha,mode=max,scope=daemon-${{ matrix.platform }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/sls,push-by-digest=true,name-canonical=true,push=true
+          # Unique cache scopes isolated by architecture
+          cache-from: type=gha,scope=sls-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=sls-${{ matrix.platform }}
           build-args: |
             VERSION=${{ github.sha }}
 
@@ -98,7 +99,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/sls/daemon
+          images: ghcr.io/${{ github.repository_owner }}/sls
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
@@ -110,6 +111,6 @@ jobs:
       - name: Create manifest list and push
         working-directory: /tmp/digests
         run: |
-          docker buildx imagetools create $(max_tags="") \
+          docker buildx imagetools create \
             $(echo "${{ steps.meta.outputs.tags }}" | xargs -I {} echo "-t {}") \
-            $(printf 'ghcr.io/${{ github.repository_owner }}/sls/daemon@sha256:%s ' *)
+            $(printf 'ghcr.io/${{ github.repository_owner }}/sls@sha256:%s ' *)
